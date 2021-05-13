@@ -57,12 +57,21 @@ CacheDisk::open(char *s, off_t blocks, off_t askip, int ahw_sector_size, int fil
 {
   path           = ats_strdup(s);
   hw_sector_size = ahw_sector_size;
+#ifdef AIO_MODE_MMAP
+  map             = mmap(0,blocks*STORE_BLOCK_SIZE,PROT_READ|PROT_WRITE,MAP_SHARED,fildes,0);
+  assert(MAP_FAILED!=map);
+#else
   fd             = fildes;
+#endif
   skip           = askip;
   start          = skip;
   /* we can't use fractions of store blocks. */
   len                 = blocks;
+#ifdef AIO_MODE_MMAP
+  io.map              = map;
+#else
   io.aiocb.aio_fildes = fd;
+#endif
   io.action           = this;
   // determine header size and hence start point by successive approximation
   uint64_t l;
@@ -99,6 +108,9 @@ CacheDisk::open(char *s, off_t blocks, off_t askip, int ahw_sector_size, int fil
 
   //
   SET_HANDLER(&CacheDisk::openStart);
+#ifdef AIO_MODE_MMAP
+  io.mutex            = mutex;
+#endif
   io.aiocb.aio_offset = skip;
   io.aiocb.aio_buf    = reinterpret_cast<char *>(header);
   io.aiocb.aio_nbytes = header_len;
@@ -138,6 +150,7 @@ CacheDisk::clearDisk()
   io.aiocb.aio_buf    = header;
   io.aiocb.aio_nbytes = header_len;
   io.thread           = AIO_CALLBACK_THREAD_ANY;
+  assert(io.mutex);
   ink_aio_write(&io);
   return 0;
 }
@@ -224,6 +237,10 @@ CacheDisk::sync()
   io.aiocb.aio_buf    = header;
   io.aiocb.aio_nbytes = header_len;
   io.thread           = AIO_CALLBACK_THREAD_ANY;
+#ifdef AIO_MODE_MMAP
+  io.mutex            = mutex;
+#endif
+  assert(io.mutex);
   ink_aio_write(&io);
   return 0;
 }

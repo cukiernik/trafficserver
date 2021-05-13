@@ -369,11 +369,18 @@ CacheVC::scanObject(int /* event ATS_UNUSED */, Event * /* e ATS_UNUSED */)
   }
 
 Lread:
+#ifdef AIO_MODE_MMAP
+  io.map = vol->map;
+#else
   io.aiocb.aio_fildes = vol->fd;
+#endif
   if (static_cast<off_t>(io.aiocb.aio_offset + io.aiocb.aio_nbytes) > static_cast<off_t>(vol->skip + vol->len)) {
     io.aiocb.aio_nbytes = vol->skip + vol->len - io.aiocb.aio_offset;
   }
   offset = 0;
+#ifdef AIO_MODE_MMAP
+  io.mutex = mutex;
+#endif
   ink_assert(ink_aio_read(&io) >= 0);
   Debug("cache_scan_truss", "read %p:scanObject %" PRId64 " %zu", this, (int64_t)io.aiocb.aio_offset, (size_t)io.aiocb.aio_nbytes);
   return EVENT_CONT;

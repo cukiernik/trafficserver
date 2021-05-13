@@ -569,7 +569,11 @@ Lagain:
           goto Lcont;
         }
         if (dir_valid(d, e)) {
+#ifdef AIO_MODE_MMAP
+          DDebug("dir_probe_hit", "found %X %X vol %p bucket %d boffset %" PRId64 "", key->slice32(0), key->slice32(1), d->map, b,
+#else
           DDebug("dir_probe_hit", "found %X %X vol %d bucket %d boffset %" PRId64 "", key->slice32(0), key->slice32(1), d->fd, b,
+#endif
                  dir_offset(e));
           dir_assign(result, e);
           *last_collision = e;
@@ -594,7 +598,11 @@ Lagain:
     collision = nullptr;
     goto Lagain;
   }
+#ifdef AIO_MODE_MMAP
+  DDebug("dir_probe_miss", "missed %X %X on vol %p bucket %d at %p", key->slice32(0), key->slice32(1), d->map, b, seg);
+#else
   DDebug("dir_probe_miss", "missed %X %X on vol %d bucket %d at %p", key->slice32(0), key->slice32(1), d->fd, b, seg);
+#endif
   CHECK_DIR(d);
   return 0;
 }
@@ -645,7 +653,11 @@ Lfill:
   dir_assign_data(e, to_part);
   dir_set_tag(e, key->slice32(2));
   ink_assert(d->vol_offset(e) < (d->skip + d->len));
+#ifdef AIO_MODE_MMAP
+  DDebug("dir_insert", "insert %p %X into vol %p bucket %d at %p tag %X %X boffset %" PRId64 "", e, key->slice32(0), d->map, bi, e,
+#else
   DDebug("dir_insert", "insert %p %X into vol %d bucket %d at %p tag %X %X boffset %" PRId64 "", e, key->slice32(0), d->fd, bi, e,
+#endif
          key->slice32(1), dir_tag(e), dir_offset(e));
   CHECK_DIR(d);
   d->header->dirty = 1;
@@ -722,7 +734,11 @@ Lfill:
   dir_assign_data(e, dir);
   dir_set_tag(e, t);
   ink_assert(d->vol_offset(e) < d->skip + d->len);
+#ifdef AIO_MODE_MMAP
+  DDebug("dir_overwrite", "overwrite %p %X into vol %p bucket %d at %p tag %X %X boffset %" PRId64 "", e, key->slice32(0), d->map,
+#else
   DDebug("dir_overwrite", "overwrite %p %X into vol %d bucket %d at %p tag %X %X boffset %" PRId64 "", e, key->slice32(0), d->fd,
+#endif
          bi, e, t, dir_tag(e), dir_offset(e));
   CHECK_DIR(d);
   d->header->dirty = 1;
@@ -888,9 +904,17 @@ dir_sync_init()
 }
 
 void
+#ifdef AIO_MODE_MMAP
+CacheSync::aio_write(void* map, char *b, int n, off_t o)
+#else
 CacheSync::aio_write(int fd, char *b, int n, off_t o)
+#endif
 {
+#ifdef AIO_MODE_MMAP
+  io.map              = map;
+#else
   io.aiocb.aio_fildes = fd;
+#endif
   io.aiocb.aio_offset = o;
   io.aiocb.aio_nbytes = n;
   io.aiocb.aio_buf    = b;
@@ -970,8 +994,11 @@ sync_cache_dir_on_shutdown()
 
       // set write limit
       d->header->agg_pos = d->header->write_pos + d->agg_buf_pos;
-
+#ifdef AIO_MODE_MMAP
+      int r = d->agg_buf_pos; memcpy(static_cast<char*>(d->map)+d->header->write_pos, d->agg_buffer, d->agg_buf_pos);
+#else
       int r = pwrite(d->fd, d->agg_buffer, d->agg_buf_pos, d->header->write_pos);
+#endif
       if (r != d->agg_buf_pos) {
         ink_assert(!"flushing agg buffer failed");
         continue;
@@ -1014,7 +1041,11 @@ sync_cache_dir_on_shutdown()
     memcpy(buf, d->raw_dir, dirlen);
     size_t B    = d->header->sync_serial & 1;
     off_t start = d->skip + (B ? dirlen : 0);
+#ifdef AIO_MODE_MMAP
+    B           = dirlen; memcpy(static_cast<char *>(d->map)+start, buf, dirlen);
+#else
     B           = pwrite(d->fd, buf, dirlen, start);
+#endif
     ink_assert(B == dirlen);
     Debug("cache_dir_sync", "done syncing dir for vol %s", d->hash_text.get());
   }
@@ -1146,7 +1177,11 @@ Lrestart:
 
     if (!writepos) {
       // write header
+#ifdef AIO_MODE_MMAP
+      aio_write(vol->map, buf + writepos, headerlen, start + writepos);
+#else
       aio_write(vol->fd, buf + writepos, headerlen, start + writepos);
+#endif
       writepos += headerlen;
     } else if (writepos < static_cast<off_t>(dirlen) - headerlen) {
       // write part of body
@@ -1154,12 +1189,20 @@ Lrestart:
       if (writepos + l > static_cast<off_t>(dirlen) - headerlen) {
         l = dirlen - headerlen - writepos;
       }
+#ifdef AIO_MODE_MMAP
+      aio_write(vol->map, buf + writepos, l, start + writepos);
+#else
       aio_write(vol->fd, buf + writepos, l, start + writepos);
+#endif
       writepos += l;
     } else if (writepos < static_cast<off_t>(dirlen)) {
       ink_assert(writepos == (off_t)dirlen - headerlen);
       // write footer
+#ifdef AIO_MODE_MMAP
+      aio_write(vol->map, buf + writepos, headerlen, start + writepos);
+#else
       aio_write(vol->fd, buf + writepos, headerlen, start + writepos);
+#endif
       writepos += headerlen;
     } else {
       vol->dir_sync_in_progress = false;

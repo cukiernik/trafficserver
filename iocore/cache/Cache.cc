@@ -1215,11 +1215,14 @@ vol_dir_clear(Vol *d)
 {
   size_t dir_len = d->dirlen();
   vol_clear_init(d);
-
+#ifdef AIO_MODE_MMAP
+  memcpy(static_cast<char*>(d->map)+d->skip,d->raw_dir,dir_len);
+#else
   if (pwrite(d->fd, d->raw_dir, dir_len, d->skip) < 0) {
     Warning("unable to clear cache directory '%s'", d->hash_text.get());
     return -1;
   }
+#endif
   return 0;
 }
 
@@ -1230,14 +1233,20 @@ Vol::clear_dir()
   vol_clear_init(this);
 
   SET_HANDLER(&Vol::handle_dir_clear);
-
+#ifdef AIO_MODE_MMAP
+  io.map              = map;
+#else
   io.aiocb.aio_fildes = fd;
+#endif
   io.aiocb.aio_buf    = raw_dir;
   io.aiocb.aio_nbytes = dir_len;
   io.aiocb.aio_offset = skip;
   io.action           = this;
   io.thread           = AIO_CALLBACK_THREAD_ANY;
   io.then             = nullptr;
+#ifdef AIO_MODE_MMAP
+  io.mutex            = mutex;
+#endif
   ink_assert(ink_aio_write(&io));
   return 0;
 }
@@ -1309,7 +1318,11 @@ Vol::init(char *s, off_t blocks, off_t dir_skip, bool clear)
 
   for (unsigned i = 0; i < countof(init_info->vol_aio); i++) {
     AIOCallback *aio      = &(init_info->vol_aio[i]);
+#ifdef AIO_MODE_MMAP
+    aio->map              = map;
+#else
     aio->aiocb.aio_fildes = fd;
+#endif
     aio->aiocb.aio_buf    = &(init_info->vol_h_f[i * STORE_BLOCK_SIZE]);
     aio->aiocb.aio_nbytes = footerlen;
     aio->action           = this;
@@ -1317,6 +1330,9 @@ Vol::init(char *s, off_t blocks, off_t dir_skip, bool clear)
     aio->then             = (i < 3) ? &(init_info->vol_aio[i + 1]) : nullptr;
   }
 #if AIO_MODE == AIO_MODE_NATIVE
+#ifdef AIO_MODE_MMAP
+  init_info->vol_aio->mutex=mutex;
+#endif
   ink_assert(ink_aio_readv(init_info->vol_aio));
 #else
   ink_assert(ink_aio_read(init_info->vol_aio));
@@ -1335,7 +1351,11 @@ Vol::handle_dir_clear(int event, void *data)
     if (static_cast<size_t>(op->aio_result) != op->aiocb.aio_nbytes) {
       Warning("unable to clear cache directory '%s'", hash_text.get());
       disk->incrErrors(op);
+#ifdef AIO_MODE_MMAP
+      map = MAP_FAILED;
+#else
       fd = -1;
+#endif
     }
 
     if (op->aiocb.aio_nbytes == dir_len) {
@@ -1344,6 +1364,7 @@ Vol::handle_dir_clear(int event, void *data)
          skip + len */
       op->aiocb.aio_nbytes = ROUND_TO_STORE_BLOCK(sizeof(VolHeaderFooter));
       op->aiocb.aio_offset = skip + dir_len;
+      assert(op->mutex);
       ink_assert(ink_aio_write(op));
       return EVENT_DONE;
     }
@@ -1610,6 +1631,10 @@ Vol::handle_recover_from_data(int event, void * /* data ATS_UNUSED */)
   }
   prev_recover_pos    = recover_pos;
   io.aiocb.aio_offset = recover_pos;
+#ifdef AIO_MODE_MMAP
+  io.map              = map;
+  io.mutex            = mutex;
+#endif
   ink_assert(ink_aio_read(&io));
   return EVENT_CONT;
 
@@ -1656,7 +1681,11 @@ Ldone : {
 
   for (int i = 0; i < 3; i++) {
     AIOCallback *aio      = &(init_info->vol_aio[i]);
+#ifdef AIO_MODE_MMAP
+    aio->map              = map;
+#else
     aio->aiocb.aio_fildes = fd;
+#endif
     aio->action           = this;
     aio->thread           = AIO_CALLBACK_THREAD_ANY;
     aio->then             = (i < 2) ? &(init_info->vol_aio[i + 1]) : nullptr;
@@ -1726,8 +1755,11 @@ Vol::handle_header_read(int event, void *data)
       }
       op = op->then;
     }
-
+#ifdef AIO_MODE_MMAP
+    io.map              = map;
+#else
     io.aiocb.aio_fildes = fd;
+#endif
     io.aiocb.aio_nbytes = this->dirlen();
     io.aiocb.aio_buf    = raw_dir;
     io.action           = this;
@@ -1741,6 +1773,9 @@ Vol::handle_header_read(int event, void *data)
         Note("using directory A for '%s'", hash_text.get());
       }
       io.aiocb.aio_offset = skip;
+#ifdef AIO_MODE_MMAP
+      io.mutex            = mutex;
+#endif
       ink_assert(ink_aio_read(&io));
     }
     // try B
@@ -1750,6 +1785,9 @@ Vol::handle_header_read(int event, void *data)
         Note("using directory B for '%s'", hash_text.get());
       }
       io.aiocb.aio_offset = skip + this->dirlen();
+#ifdef AIO_MODE_MMAP
+      io.mutex            = mutex;
+#endif
       ink_assert(ink_aio_read(&io));
     } else {
       Note("no good directory, clearing '%s' since sync_serials on both A and B copies are invalid", hash_text.get());
@@ -1777,7 +1815,11 @@ Vol::dir_init_done(int /* event ATS_UNUSED */, void * /* data ATS_UNUSED */)
     ink_assert(!gvol[vol_no]);
     gvol[vol_no] = this;
     SET_HANDLER(&Vol::aggWrite);
+#ifdef AIO_MODE_MMAP
+    cache->vol_initialized(map != MAP_FAILED);
+#else
     cache->vol_initialized(fd != -1);
+#endif
     return EVENT_DONE;
   }
 }
@@ -1947,7 +1989,11 @@ CacheProcessor::mark_storage_offline(CacheDisk *d, ///< Target disk
   }
 
   for (p = 0; p < gnvol; p++) {
+#ifdef AIO_MODE_MMAP
+    if (d->map == gvol[p]->map) {
+#else
     if (d->fd == gvol[p]->fd) {
+#endif
       total_dir_delete += gvol[p]->buckets * gvol[p]->segments * DIR_DEPTH;
       used_dir_delete += dir_entries_used(gvol[p]);
       total_bytes_delete += gvol[p]->len - gvol[p]->dirlen();
@@ -2009,8 +2055,11 @@ AIO_Callback_handler::handle_disk_failure(int /* event ATS_UNUSED */, void *data
 
   for (; disk_no < gndisks; disk_no++) {
     CacheDisk *d = gdisks[disk_no];
-
+#ifdef AIO_MODE_MMAP
+    if (d->map == cb->map) {
+#else
     if (d->fd == cb->aiocb.aio_fildes) {
+#endif
       char message[256];
       d->incrErrors(cb);
 
@@ -2091,7 +2140,11 @@ Cache::open(bool clear, bool /* fix ATS_UNUSED */)
             cp->vols[vol_no]            = new Vol();
             CacheDisk *d                = cp->disk_vols[i]->disk;
             cp->vols[vol_no]->disk      = d;
+#ifdef AIO_MODE_MMAP
+            cp->vols[vol_no]->map       = d->map;
+#else
             cp->vols[vol_no]->fd        = d->fd;
+#endif
             cp->vols[vol_no]->cache     = this;
             cp->vols[vol_no]->cache_vol = cp;
             blocks                      = q->b->len;
@@ -2322,8 +2375,11 @@ CacheVC::handleRead(int /* event ATS_UNUSED */, Event * /* e ATS_UNUSED */)
     SET_HANDLER(&CacheVC::handleReadDone);
     return EVENT_RETURN;
   }
-
+#ifdef AIO_MODE_MMAP
+  io.map              = vol->map;
+#else
   io.aiocb.aio_fildes = vol->fd;
+#endif
   io.aiocb.aio_offset = vol->vol_offset(&dir);
   if (static_cast<off_t>(io.aiocb.aio_offset + io.aiocb.aio_nbytes) > static_cast<off_t>(vol->skip + vol->len)) {
     io.aiocb.aio_nbytes = vol->skip + vol->len - io.aiocb.aio_offset;
@@ -2333,6 +2389,9 @@ CacheVC::handleRead(int /* event ATS_UNUSED */, Event * /* e ATS_UNUSED */)
   io.action        = this;
   io.thread        = mutex->thread_holding->tt == DEDICATED ? AIO_CALLBACK_THREAD_ANY : mutex->thread_holding;
   SET_HANDLER(&CacheVC::handleReadDone);
+#ifdef AIO_MODE_MMAP
+  io.mutex         = mutex;
+#endif
   ink_assert(ink_aio_read(&io) >= 0);
   CACHE_DEBUG_INCREMENT_DYN_STAT(cache_pread_count_stat);
   return EVENT_CONT;

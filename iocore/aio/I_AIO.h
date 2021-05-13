@@ -40,6 +40,9 @@ static constexpr ts::ModuleVersion AIO_MODULE_PUBLIC_VERSION(1, 0, ts::ModuleVer
 
 #define AIO_MODE_THREAD 0
 #define AIO_MODE_NATIVE 1
+#if 0
+#define AIO_MODE_MMAP   2
+#endif
 
 #if TS_USE_LINUX_NATIVE_AIO
 #define AIO_MODE AIO_MODE_NATIVE
@@ -87,6 +90,9 @@ bool ink_aio_thread_num_set(int thread_num);
 
 struct AIOCallback : public Continuation {
   // set before calling aio_read/aio_write
+#ifdef AIO_MODE_MMAP
+  void* map         = MAP_FAILED;
+#endif
   ink_aiocb aiocb;
   Action action;
   EThread *thread   = AIO_CALLBACK_THREAD_ANY;

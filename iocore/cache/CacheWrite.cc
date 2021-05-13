@@ -752,7 +752,11 @@ Vol::evac_range(off_t low, off_t high, int evac_phase)
     }
     if (first) {
       first->f.done       = 1;
+#ifdef AIO_MODE_MMAP
+      io.map              = map;
+#else
       io.aiocb.aio_fildes = fd;
+#endif
       io.aiocb.aio_nbytes = dir_approx_size(&first->dir);
       io.aiocb.aio_offset = this->vol_offset(&first->dir);
       if (static_cast<off_t>(io.aiocb.aio_offset + io.aiocb.aio_nbytes) > static_cast<off_t>(skip + len)) {
@@ -766,6 +770,9 @@ Vol::evac_range(off_t low, off_t high, int evac_phase)
       io.thread        = AIO_CALLBACK_THREAD_ANY;
       DDebug("cache_evac", "evac_range evacuating %X %d", (int)dir_tag(&first->dir), (int)dir_offset(&first->dir));
       SET_HANDLER(&Vol::evacuateDocReadDone);
+#ifdef AIO_MODE_MMAP
+      io.mutex         = mutex;
+#endif
       ink_assert(ink_aio_read(&io) >= 0);
       return -1;
     }
@@ -1105,8 +1112,11 @@ Lagain:
 
   // set write limit
   header->agg_pos = header->write_pos + agg_buf_pos;
-
+#ifdef AIO_MODE_MMAP
+  io.map              = map;
+#else
   io.aiocb.aio_fildes = fd;
+#endif
   io.aiocb.aio_offset = header->write_pos;
   io.aiocb.aio_buf    = agg_buffer;
   io.aiocb.aio_nbytes = agg_buf_pos;
@@ -1118,6 +1128,7 @@ Lagain:
    */
   io.thread = AIO_CALLBACK_THREAD_AIO;
   SET_HANDLER(&Vol::aggWriteDone);
+  assert(io.mutex);
   ink_aio_write(&io);
 
 Lwait:

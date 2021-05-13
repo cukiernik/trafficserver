@@ -123,8 +123,11 @@ struct Vol : public Continuation {
   char *path = nullptr;
   ats_scoped_str hash_text;
   CryptoHash hash_id;
-  int fd = -1;
-
+#ifdef AIO_MODE_MMAP
+  void* map               = MAP_FAILED;
+#else
+  int fd                  = -1;
+#endif
   char *raw_dir           = nullptr;
   Dir *dir                = nullptr;
   VolHeaderFooter *header = nullptr;

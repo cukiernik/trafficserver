@@ -504,35 +504,29 @@ DiskHandler::startAIOEvent(int /* event ATS_UNUSED */, Event *e)
 int
 DiskHandler::mainAIOEvent(int event, Event *e)
 {
-  AIOCallback *op = nullptr;
 Lagain:
   int ret = io_getevents(ctx, 0, MAX_AIO_EVENTS, events, nullptr);
   for (int i = 0; i < ret; i++) {
-    op             = (AIOCallback *)events[i].data;
-    op->aio_result = events[i].res;
+    AIOCallback *op = static_cast<AIOCallback*>(events[i].data);
+    op->aio_result  = events[i].res;
     ink_assert(op->action.continuation);
     complete_list.enqueue(op);
   }
-
   if (ret == MAX_AIO_EVENTS) {
     goto Lagain;
   }
-
   if (ret < 0) {
     if (errno == EINTR)
       goto Lagain;
     if (errno == EFAULT || errno == ENOSYS)
       Debug("aio", "io_getevents failed: %s (%d)", strerror(-ret), -ret);
   }
-
   ink_aiocb *cbs[MAX_AIO_EVENTS];
   int num = 0;
-
-  for (; num < MAX_AIO_EVENTS && ((op = ready_list.dequeue()) != nullptr); ++num) {
+  for (AIOCallback *op; num < MAX_AIO_EVENTS && ((op = ready_list.dequeue()) != nullptr); ++num) {
     cbs[num] = &op->aiocb;
     ink_assert(op->action.continuation);
   }
-
   if (num > 0) {
     int ret;
     do {
@@ -547,8 +541,7 @@ Lagain:
       }
     }
   }
-
-  while ((op = complete_list.dequeue()) != nullptr) {
+  while (AIOCallback *op = complete_list.dequeue()) {
     op->mutex = op->action.mutex;
     MUTEX_TRY_LOCK(lock, op->mutex, trigger_event->ethread);
     if (!lock.is_locked()) {
@@ -566,11 +559,23 @@ ink_aio_read(AIOCallback *op, int /* fromAPI ATS_UNUSED */)
   op->aiocb.aio_lio_opcode = IO_CMD_PREAD;
   op->aiocb.data           = op;
   EThread *t               = this_ethread();
+#ifdef AIO_MODE_MMAP
+  ink_assert(MAP_FAILED!=op->map);
+  memcpy(op->aiocb.aio_buf,static_cast<char *>(op->map)+op->aiocb.aio_offset,op->aiocb.aio_nbytes);
+  op->aio_result=op->aiocb.aio_nbytes;
+  if(!op->mutex)return 0;
+  MUTEX_TRY_LOCK(lock, op->mutex, t);
+  if (lock.is_locked()) {
+    op->handleEvent(EVENT_NONE, nullptr);
+  } else {
+    t->schedule_imm(op);
+  }
+#else
 #ifdef HAVE_EVENTFD
   io_set_eventfd(&op->aiocb, t->evfd);
 #endif
   t->diskHandler->ready_list.enqueue(op);
-
+#endif
   return 1;
 }
 
@@ -580,17 +585,32 @@ ink_aio_write(AIOCallback *op, int /* fromAPI ATS_UNUSED */)
   op->aiocb.aio_lio_opcode = IO_CMD_PWRITE;
   op->aiocb.data           = op;
   EThread *t               = this_ethread();
+#ifdef AIO_MODE_MMAP
+  ink_assert(MAP_FAILED!=op->map);
+  memcpy(static_cast<char *>(op->map)+op->aiocb.aio_offset,op->aiocb.aio_buf,op->aiocb.aio_nbytes);
+  op->aio_result=op->aiocb.aio_nbytes;
+  if(!op->mutex)return 0;
+  MUTEX_TRY_LOCK(lock, op->mutex, t);
+  if (lock.is_locked()) {
+    op->handleEvent(EVENT_NONE, nullptr);
+  } else {
+    t->schedule_imm(op);
+  }
+  return 1;
+#endif
 #ifdef HAVE_EVENTFD
   io_set_eventfd(&op->aiocb, t->evfd);
 #endif
   t->diskHandler->ready_list.enqueue(op);
-
   return 1;
 }
 
 int
 ink_aio_readv(AIOCallback *op, int /* fromAPI ATS_UNUSED */)
 {
+#ifdef AIO_MODE_MMAP
+  for(;op->then;op=op->then)ink_aio_read(op);
+#else
   EThread *t      = this_ethread();
   DiskHandler *dh = t->diskHandler;
   AIOCallback *io = op;
@@ -615,12 +635,16 @@ ink_aio_readv(AIOCallback *op, int /* fromAPI ATS_UNUSED */)
       op         = op->then;
     }
   }
+#endif
   return 1;
 }
 
 int
 ink_aio_writev(AIOCallback *op, int /* fromAPI ATS_UNUSED */)
 {
+#ifdef AIO_MODE_MMAP
+  for(;op->then;op=op->then)ink_aio_write(op);
+#else
   EThread *t      = this_ethread();
   DiskHandler *dh = t->diskHandler;
   AIOCallback *io = op;
@@ -645,6 +669,7 @@ ink_aio_writev(AIOCallback *op, int /* fromAPI ATS_UNUSED */)
       op         = op->then;
     }
   }
+#endif
   return 1;
 }
 #endif // AIO_MODE != AIO_MODE_NATIVE

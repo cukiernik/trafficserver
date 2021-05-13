@@ -88,7 +88,11 @@ struct CacheDisk : public Continuation {
   off_t skip              = 0;
   off_t num_usable_blocks = 0;
   int hw_sector_size      = 0;
+#ifdef AIO_MODE_MMAP
+  void* map               = MAP_FAILED;
+#else
   int fd                  = -1;
+#endif
   off_t free_space        = 0;
   off_t wasted_space      = 0;
   DiskVol **disk_vols     = nullptr;
