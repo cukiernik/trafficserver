@@ -36,7 +36,7 @@ CacheDisk::incrErrors(const AIOCallback *io)
 
   const char *opname = "unknown";
   int opcode         = io->aiocb.aio_lio_opcode;
-  int fd             = io->aiocb.aio_fildes;
+  auto fd            = io->aiocb.aio_fildes;
   switch (io->aiocb.aio_lio_opcode) {
   case LIO_READ:
     opname = "READ";
@@ -49,7 +49,11 @@ CacheDisk::incrErrors(const AIOCallback *io)
   default:
     break;
   }
+#if TS_USE_MMAP
+  Warning("failed operation: %s (opcode=%d), span: %s (fd=%p)", opname, opcode, path, fd);
+#else
   Warning("failed operation: %s (opcode=%d), span: %s (fd=%d)", opname, opcode, path, fd);
+#endif
 }
 
 int
@@ -57,9 +61,14 @@ CacheDisk::open(char *s, off_t blocks, off_t askip, int ahw_sector_size, int fil
 {
   path           = ats_strdup(s);
   hw_sector_size = ahw_sector_size;
-  fd             = fildes;
-  skip           = askip;
-  start          = skip;
+#if TS_USE_MMAP
+  fd = mmap(0, blocks * STORE_BLOCK_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fildes, 0);
+  ink_assert(MAP_FAILED != fd);
+#else
+  fd = fildes;
+#endif
+  skip  = askip;
+  start = skip;
   /* we can't use fractions of store blocks. */
   len                 = blocks;
   io.aiocb.aio_fildes = fd;
@@ -99,6 +108,9 @@ CacheDisk::open(char *s, off_t blocks, off_t askip, int ahw_sector_size, int fil
 
   // read disk header
   SET_HANDLER(&CacheDisk::openStart);
+#if TS_USE_MMAP
+  io.mutex = mutex;
+#endif
   io.aiocb.aio_offset = skip;
   io.aiocb.aio_buf    = reinterpret_cast<char *>(header);
   io.aiocb.aio_nbytes = header_len;

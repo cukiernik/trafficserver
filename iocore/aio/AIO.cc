@@ -220,7 +220,11 @@ struct AIOThreadInfo : public Continuation {
 
 /* insert  an entry for file descriptor fildes into aio_reqs */
 static AIO_Reqs *
+#if TS_USE_MMAP
+aio_init_fildes(void *fildes, int fromAPI = 0)
+#else
 aio_init_fildes(int fildes, int fromAPI = 0)
+#endif
 {
   char thr_name[MAX_THREAD_NAME_LENGTH];
   int i;
@@ -234,8 +238,12 @@ aio_init_fildes(int fildes, int fromAPI = 0)
   RecInt thread_num;
 
   if (fromAPI) {
-    request->index    = 0;
-    request->filedes  = -1;
+    request->index = 0;
+#if TS_USE_MMAP
+    request->filedes = MAP_FAILED;
+#else
+    request->filedes = -1;
+#endif
     aio_reqs[0]       = request;
     thread_is_created = 1;
     thread_num        = api_config_threads_per_disk;
@@ -257,7 +265,11 @@ aio_init_fildes(int fildes, int fromAPI = 0)
     } else {
       thr_info = new AIOThreadInfo(request, 0);
     }
+#if TS_USE_MMAP
+    snprintf(thr_name, MAX_THREAD_NAME_LENGTH, "[ET_AIO %d:%p]", i, fildes);
+#else
     snprintf(thr_name, MAX_THREAD_NAME_LENGTH, "[ET_AIO %d:%d]", i, fildes);
+#endif
     ink_assert(eventProcessor.spawn_thread(thr_info, thr_name, stacksize));
   }
 
@@ -347,10 +359,18 @@ aio_queue_req(AIOCallbackInternal *op, int fromAPI = 0)
     }
     op->aio_req = req;
   }
+#if TS_USE_MMAP
+  if (fromAPI && (!req || req->filedes != MAP_FAILED)) {
+#else
   if (fromAPI && (!req || req->filedes != -1)) {
+#endif
     ink_mutex_acquire(&insert_mutex);
     if (aio_reqs[0] == nullptr) {
+#if TS_USE_MMAP
+      req = aio_init_fildes(MAP_FAILED, 1);
+#else
       req = aio_init_fildes(-1, 1);
+#endif
     } else {
       req = aio_reqs[0];
     }
@@ -379,7 +399,7 @@ aio_queue_req(AIOCallbackInternal *op, int fromAPI = 0)
 static inline int
 cache_op(AIOCallbackInternal *op)
 {
-  bool read = (op->aiocb.aio_lio_opcode == LIO_READ);
+  bool const read = (op->aiocb.aio_lio_opcode == LIO_READ);
   for (; op; op = (AIOCallbackInternal *)op->then) {
     ink_aiocb *a = &op->aiocb;
     ssize_t err, res = 0;
@@ -387,9 +407,19 @@ cache_op(AIOCallbackInternal *op)
     while (a->aio_nbytes - res > 0) {
       do {
         if (read) {
+#if TS_USE_MMAP
+          memcpy(static_cast<char *>(a->aio_buf) + res, static_cast<char const *>(a->aio_fildes) + a->aio_offset + res,
+                 err = a->aio_nbytes - res);
+#else
           err = pread(a->aio_fildes, (static_cast<char *>(a->aio_buf)) + res, a->aio_nbytes - res, a->aio_offset + res);
+#endif
         } else {
+#if TS_USE_MMAP
+          memcpy(static_cast<char *>(a->aio_fildes) + a->aio_offset + res, static_cast<char const *>(a->aio_buf) + res,
+                 err = a->aio_nbytes - res);
+#else
           err = pwrite(a->aio_fildes, (static_cast<char *>(a->aio_buf)) + res, a->aio_nbytes - res, a->aio_offset + res);
+#endif
         }
       } while ((err < 0) && (errno == EINTR || errno == ENOBUFS || errno == ENOMEM));
       if (err <= 0) {
@@ -492,6 +522,7 @@ aio_thread_main(void *arg)
   return nullptr;
 }
 #else
+#if !TS_USE_MMAP
 int
 DiskHandler::startAIOEvent(int /* event ATS_UNUSED */, Event *e)
 {
@@ -536,6 +567,8 @@ Lagain:
   if (num > 0) {
     int ret;
     do {
+      Fatal("io_submit not supported with TS_USE_MMAP and TS_USE_LINUX_NATIVE_AIO");
+      ret = 0;
       ret = io_submit(ctx, num, cbs);
     } while (ret < 0 && ret == -EAGAIN);
 
@@ -559,6 +592,7 @@ Lagain:
   }
   return EVENT_CONT;
 }
+#endif
 
 int
 ink_aio_read(AIOCallback *op, int /* fromAPI ATS_UNUSED */)
@@ -569,9 +603,24 @@ ink_aio_read(AIOCallback *op, int /* fromAPI ATS_UNUSED */)
 #ifdef HAVE_EVENTFD
   io_set_eventfd(&op->aiocb, t->evfd);
 #endif
+#if TS_USE_MMAP
+  ink_assert(MAP_FAILED != op->aiocb.aio_fildes);
+  memcpy(op->aiocb.aio_buf, static_cast<char *>(op->aiocb.aio_fildes) + op->aiocb.aio_offset, op->aiocb.aio_nbytes);
+  op->aio_result = op->aiocb.aio_nbytes;
+  ink_assert(op->link.prev == nullptr);
+  ink_assert(op->link.next == nullptr);
+  op->mutex = op->action.mutex;
+  if (AIO_CALLBACK_THREAD_ANY == op->thread) {
+    return !!t->schedule_imm(op);
+  }
+  if (AIO_CALLBACK_THREAD_AIO == op->thread) {
+    return op->handleEvent(EVENT_NONE, nullptr);
+  } // SCOPED_MUTEX_LOCK(lock, op->mutex, thr_info->mutex->thread_holding);
+  return !!op->thread->schedule_imm(op);
+#else
   t->diskHandler->ready_list.enqueue(op);
-
   return 1;
+#endif
 }
 
 int
@@ -583,14 +632,35 @@ ink_aio_write(AIOCallback *op, int /* fromAPI ATS_UNUSED */)
 #ifdef HAVE_EVENTFD
   io_set_eventfd(&op->aiocb, t->evfd);
 #endif
+#if TS_USE_MMAP
+  ink_assert(MAP_FAILED != op->aiocb.aio_fildes);
+  memcpy(static_cast<char *>(op->aiocb.aio_fildes) + op->aiocb.aio_offset, op->aiocb.aio_buf, op->aiocb.aio_nbytes);
+  op->aio_result = op->aiocb.aio_nbytes;
+  ink_assert(op->link.prev == nullptr);
+  ink_assert(op->link.next == nullptr);
+  op->mutex = op->action.mutex;
+  op->mutex = op->action.mutex;
+  if (AIO_CALLBACK_THREAD_ANY == op->thread) {
+    return !!t->schedule_imm(op);
+  }
+  if (AIO_CALLBACK_THREAD_AIO == op->thread) {
+    SCOPED_MUTEX_LOCK(lock, op->mutex, t->mutex->thread_holding);
+    return op->handleEvent(EVENT_NONE, nullptr);
+  }
+  return !!op->thread->schedule_imm(op);
+#else
   t->diskHandler->ready_list.enqueue(op);
-
   return 1;
+#endif
 }
 
 int
 ink_aio_readv(AIOCallback *op, int /* fromAPI ATS_UNUSED */)
 {
+#if TS_USE_MMAP
+  for (; op->then; op = op->then)
+    ink_aio_read(op);
+#else
   EThread *t      = this_ethread();
   DiskHandler *dh = t->diskHandler;
   AIOCallback *io = op;
@@ -615,12 +685,17 @@ ink_aio_readv(AIOCallback *op, int /* fromAPI ATS_UNUSED */)
       op         = op->then;
     }
   }
+#endif
   return 1;
 }
 
 int
 ink_aio_writev(AIOCallback *op, int /* fromAPI ATS_UNUSED */)
 {
+#if TS_USE_MMAP
+  for (; op->then; op = op->then)
+    ink_aio_write(op);
+#else
   EThread *t      = this_ethread();
   DiskHandler *dh = t->diskHandler;
   AIOCallback *io = op;
@@ -645,6 +720,7 @@ ink_aio_writev(AIOCallback *op, int /* fromAPI ATS_UNUSED */)
       op         = op->then;
     }
   }
+#endif
   return 1;
 }
 #endif // AIO_MODE != AIO_MODE_NATIVE
