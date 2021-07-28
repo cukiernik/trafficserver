@@ -147,7 +147,7 @@ struct Vol : public Continuation {
   Queue<CacheVC, Continuation::Link_link> agg;
   Queue<CacheVC, Continuation::Link_link> stat_cache_vcs;
   Queue<CacheVC, Continuation::Link_link> sync;
-  char *agg_buffer  = nullptr;
+  char *agg_buffer;
   int agg_todo_size = 0;
   int agg_buf_pos   = 0;
 
@@ -267,12 +267,17 @@ struct Vol : public Continuation {
   Vol() : Continuation(new_ProxyMutex())
   {
     open_dir.mutex = mutex;
+#ifdef AIO_MODE_MMAP
+    agg_buffer=nullptr;
+#else
     agg_buffer     = (char *)ats_memalign(ats_pagesize(), AGG_SIZE);
     memset(agg_buffer, 0, AGG_SIZE);
+#endif
     SET_HANDLER(&Vol::aggWrite);
   }
-
+#ifndef AIO_MODE_MMAP
   ~Vol() override { ats_free(agg_buffer); }
+#endif
 };
 
 struct AIO_Callback_handler : public Continuation {

@@ -383,6 +383,7 @@ Vol::aggWriteDone(int event, Event *e)
     Dir del_dir;
     dir_clear(&del_dir);
     for (int done = 0; done < agg_buf_pos;) {
+      assert(agg_buffer);
       Doc *doc = reinterpret_cast<Doc *>(agg_buffer + done);
       dir_set_offset(&del_dir, header->write_pos + done);
       dir_delete(&doc->key, this, &del_dir);
@@ -1020,6 +1021,10 @@ Vol::agg_wrap()
 int
 Vol::aggWrite(int event, void * /* e ATS_UNUSED */)
 {
+#ifdef AIO_MODE_MMAP
+    assert((!agg_buffer)||(agg_buffer==(static_cast<char *>(map)+header->write_pos)));
+    agg_buffer=static_cast<char *>(map)+header->write_pos;
+#endif
   ink_assert(!is_io_in_progress());
 
   Que(CacheVC, link) tocall;
@@ -1037,6 +1042,9 @@ Lagain:
       break;
     }
     DDebug("agg_read", "copying: %d, %" PRIu64 ", key: %d", agg_buf_pos, header->write_pos + agg_buf_pos, c->first_key.slice32(0));
+#ifdef AIO_MODE_MMAP
+    assert(agg_buffer==(static_cast<char *>(map)+header->write_pos));
+#endif
     int wrotelen = agg_copy(agg_buffer + agg_buf_pos, c);
     ink_assert(writelen == wrotelen);
     agg_todo_size -= writelen;
@@ -1102,6 +1110,7 @@ Lagain:
     ink_assert(sync.head);
     int l       = round_to_approx_size(sizeof(Doc));
     agg_buf_pos = l;
+    assert(agg_buffer);
     Doc *d      = reinterpret_cast<Doc *>(agg_buffer);
     memset(static_cast<void *>(d), 0, sizeof(Doc));
     d->magic        = DOC_MAGIC;
@@ -1118,6 +1127,7 @@ Lagain:
   io.aiocb.aio_fildes = fd;
 #endif
   io.aiocb.aio_offset = header->write_pos;
+  assert(agg_buffer);
   io.aiocb.aio_buf    = agg_buffer;
   io.aiocb.aio_nbytes = agg_buf_pos;
   io.action           = this;

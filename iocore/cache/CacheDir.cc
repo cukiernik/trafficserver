@@ -995,7 +995,8 @@ sync_cache_dir_on_shutdown()
       // set write limit
       d->header->agg_pos = d->header->write_pos + d->agg_buf_pos;
 #ifdef AIO_MODE_MMAP
-      int r = d->agg_buf_pos; memcpy(static_cast<char*>(d->map)+d->header->write_pos, d->agg_buffer, d->agg_buf_pos);
+      assert(!d->agg_buffer);
+      int r = d->agg_buf_pos; d->agg_buffer=static_cast<char *>(d->map)+d->header->write_pos;
 #else
       int r = pwrite(d->fd, d->agg_buffer, d->agg_buf_pos, d->header->write_pos);
 #endif
