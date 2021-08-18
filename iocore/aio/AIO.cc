@@ -561,7 +561,10 @@ ink_aio_read(AIOCallback *op, int /* fromAPI ATS_UNUSED */)
   EThread *t               = this_ethread();
 #ifdef AIO_MODE_MMAP
   ink_assert(MAP_FAILED!=op->map);
-  memcpy(op->aiocb.aio_buf,static_cast<char *>(op->map)+op->aiocb.aio_offset,op->aiocb.aio_nbytes);
+  fprintf(stderr, "ink_aio_read  memcpy(%p,%p+%llx,%lx);\n",op->aiocb.aio_buf,static_cast<char *>(op->map),op->aiocb.aio_offset,op->aiocb.aio_nbytes);
+  if(op->aiocb.aio_buf!=(static_cast<char *>(op->map)+op->aiocb.aio_offset))
+    memcpy(op->aiocb.aio_buf,static_cast<char *>(op->map)+op->aiocb.aio_offset,op->aiocb.aio_nbytes);
+  else fprintf(stderr,"skip memcpy %p at ink_aio_read\n",op->aiocb.aio_buf);
   op->aio_result=op->aiocb.aio_nbytes;
   if(!op->mutex)return 0;
   MUTEX_TRY_LOCK(lock, op->mutex, t);
@@ -587,7 +590,10 @@ ink_aio_write(AIOCallback *op, int /* fromAPI ATS_UNUSED */)
   EThread *t               = this_ethread();
 #ifdef AIO_MODE_MMAP
   ink_assert(MAP_FAILED!=op->map);
-  memcpy(static_cast<char *>(op->map)+op->aiocb.aio_offset,op->aiocb.aio_buf,op->aiocb.aio_nbytes);
+  fprintf(stderr, "ink_aio_write                memcpy(%p+%llx,%p,%lx);\n",static_cast<char *>(op->map),op->aiocb.aio_offset,op->aiocb.aio_buf,op->aiocb.aio_nbytes);
+  if((static_cast<char *>(op->map)+op->aiocb.aio_offset)!=op->aiocb.aio_buf)
+    memcpy(static_cast<char *>(op->map)+op->aiocb.aio_offset,op->aiocb.aio_buf,op->aiocb.aio_nbytes);
+  else fprintf(stderr,"skip memcpy %p at ink_aio_write\n",op->aiocb.aio_buf);
   op->aio_result=op->aiocb.aio_nbytes;
   if(!op->mutex)return 0;
   MUTEX_TRY_LOCK(lock, op->mutex, t);

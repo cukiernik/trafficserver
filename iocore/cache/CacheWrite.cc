@@ -1023,6 +1023,8 @@ Vol::aggWrite(int event, void * /* e ATS_UNUSED */)
 {
 #ifdef AIO_MODE_MMAP
     if(agg_buffer!=(static_cast<char *>(map)+header->write_pos)) {
+        if(agg_buffer)
+            fprintf(stderr,"Switch Vol %p from %p to %p+%lx\n",this,agg_buffer,static_cast<char *>(map),header->write_pos);
         agg_buffer=static_cast<char *>(map)+header->write_pos;
         memset(agg_buffer, 0, 0x1000);
     }
@@ -1141,7 +1143,7 @@ Lagain:
   io.thread = AIO_CALLBACK_THREAD_AIO;
   SET_HANDLER(&Vol::aggWriteDone);
   assert(io.mutex);
-  ink_aio_write(&io);
+  ink_aio_write(&io); ////////////////////////////////////////////////////////////
 
 Lwait:
   int ret = EVENT_CONT;
