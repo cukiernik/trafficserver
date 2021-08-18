@@ -20,6 +20,7 @@
 bin_PROGRAMS += traffic_server/traffic_server
 
 traffic_server_traffic_server_CPPFLAGS = \
+	-DGIT="\""$(shell git log -1 --format=%h)"\"" \
 	$(AM_CPPFLAGS) \
 	$(iocore_include_dirs) \
 	-I$(abs_top_srcdir)/include \

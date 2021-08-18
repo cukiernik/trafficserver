@@ -1729,6 +1729,10 @@ bind_outputs(const char *bind_stdout_p, const char *bind_stderr_p)
 int
 main(int /* argc ATS_UNUSED */, const char **argv)
 {
+#ifdef GIT
+(void*)write(2,"GIT " GIT "\n",sizeof(GIT)+4);
+#endif
+
 #if TS_HAS_PROFILER
   HeapProfilerStart("/tmp/ts.hprof");
   ProfilerStart("/tmp/ts.prof");
