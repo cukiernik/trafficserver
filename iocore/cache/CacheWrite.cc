@@ -1022,8 +1022,10 @@ int
 Vol::aggWrite(int event, void * /* e ATS_UNUSED */)
 {
 #ifdef AIO_MODE_MMAP
-    assert((!agg_buffer)||(agg_buffer==(static_cast<char *>(map)+header->write_pos)));
-    agg_buffer=static_cast<char *>(map)+header->write_pos;
+    if(agg_buffer!=(static_cast<char *>(map)+header->write_pos)) {
+        agg_buffer=static_cast<char *>(map)+header->write_pos;
+        memset(agg_buffer, 0, 0x1000);
+    }
 #endif
   ink_assert(!is_io_in_progress());
 
