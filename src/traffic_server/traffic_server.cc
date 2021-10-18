@@ -1866,7 +1866,6 @@ main(int /* argc ATS_UNUSED */, const char **argv)
   // modify the capabilities in other threads, breaking things.
   if (admin_user_p) {
     PreserveCapabilities();
-    change_uid_gid(user);
     RestrictCapabilities();
   }
 #endif
