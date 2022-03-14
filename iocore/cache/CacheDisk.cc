@@ -62,9 +62,14 @@ CacheDisk::open(char *s, off_t blocks, off_t askip, int ahw_sector_size, int fil
   path           = ats_strdup(s);
   hw_sector_size = ahw_sector_size;
 #if TS_USE_MMAP
-  fd = mmap(0, blocks * STORE_BLOCK_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_HUGETLB | MAP_ANONYMOUS , fildes, 0);
+  #define MAP_HUGE_1GB    (30 << MAP_HUGE_SHIFT)
+  fd = mmap(0, blocks * STORE_BLOCK_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_HUGETLB | MAP_ANONYMOUS  | MAP_HUGE_1GB, fildes, 0);
+  if(MAP_FAILED==fd) {
+      fprintf(stderr," MAP_FAILED %lx MAP_ANONYMOUS MAP_HUGETLB MAP_HUGE_1GB\n", blocks * STORE_BLOCK_SIZE);
+      fd = mmap(0, blocks * STORE_BLOCK_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_HUGETLB | MAP_ANONYMOUS , fildes, 0);
+  }
   if(MAP_FAILED==fd){
-      fprintf(stderr," MAP_FAILED %lx MAP_HUGETLB MAP_ANONYMOUS\n", blocks * STORE_BLOCK_SIZE);
+      fprintf(stderr," MAP_FAILED %lx MAP_ANONYMOUS MAP_HUGETLB\n", blocks * STORE_BLOCK_SIZE);
       fd = mmap(0, blocks * STORE_BLOCK_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE , fildes, 0);}
   ink_assert(MAP_FAILED != fd);
 #else
