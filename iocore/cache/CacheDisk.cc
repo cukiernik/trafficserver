@@ -63,6 +63,8 @@ CacheDisk::open(char *s, off_t blocks, off_t askip, int ahw_sector_size, int fil
   hw_sector_size = ahw_sector_size;
 #if TS_USE_MMAP
   fd = mmap(0, blocks * STORE_BLOCK_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fildes, 0);
+  if (MAP_FAILED == fd)
+    fprintf(stderr, "Fail %p mmap %s %lx\n", fd, s, blocks * STORE_BLOCK_SIZE);
   ink_assert(MAP_FAILED != fd);
 #else
   fd = fildes;
