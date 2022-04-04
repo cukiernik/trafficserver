@@ -1,0 +1,7 @@
+#!/bin/bash -ex
+cd /tmp
+seq 10 100000 | while read N ; do
+ echo " http://127.0.0.1:8080/32MB/${RANDOM} 2>&1 >/dev/null"
+done | time xargs -P100 -n1 wget -O /dev/null --no-check-certificate
+
+
