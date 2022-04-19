@@ -320,7 +320,7 @@ NetAccept::do_blocking_accept(EThread *t)
       }
     }
     // check for throttle
-    if (!opt.backdoor && check_net_throttle(ACCEPT)) {
+    if (check_net_throttle(ACCEPT)) {
       check_throttle_warning(ACCEPT);
       // close the connection as we are in throttle state
       con.close();
@@ -348,6 +348,7 @@ NetAccept::do_blocking_accept(EThread *t)
     vc->action_     = *action_;
     vc->set_is_transparent(opt.f_inbound_transparent);
     vc->set_is_proxy_protocol(opt.f_proxy_protocol);
+    vc->options.sockopt_flags        = opt.sockopt_flags;
     vc->options.packet_mark          = opt.packet_mark;
     vc->options.packet_tos           = opt.packet_tos;
     vc->options.packet_notsent_lowat = opt.packet_notsent_lowat;
@@ -436,7 +437,7 @@ NetAccept::acceptFastEvent(int event, void *ep)
 
     if (likely(fd >= 0)) {
       // check for throttle
-      if (!opt.backdoor && check_net_throttle(ACCEPT)) {
+      if (check_net_throttle(ACCEPT)) {
         // close the connection as we are in throttle state
         con.close();
         NET_SUM_DYN_STAT(net_connections_throttled_in_stat, 1);
@@ -500,6 +501,7 @@ NetAccept::acceptFastEvent(int event, void *ep)
     vc->action_     = *action_;
     vc->set_is_transparent(opt.f_inbound_transparent);
     vc->set_is_proxy_protocol(opt.f_proxy_protocol);
+    vc->options.sockopt_flags        = opt.sockopt_flags;
     vc->options.packet_mark          = opt.packet_mark;
     vc->options.packet_tos           = opt.packet_tos;
     vc->options.packet_notsent_lowat = opt.packet_notsent_lowat;
