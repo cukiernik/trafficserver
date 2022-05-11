@@ -79,6 +79,7 @@ ProtectedQueue::dequeue_external()
       e->mutex = nullptr;
       eventAllocator.free(e);
     }
+    break; // test dekolejkowania pojedynczego. Czy zmniejszy sie latencja?
   }
 }
 
