@@ -40,15 +40,6 @@ ProtectedQueue::ProtectedQueue()
   ink_cond_init(&might_have_data);
 }
 
-TS_INLINE void
-ProtectedQueue::signal()
-{
-  // Need to get the lock before you can signal the thread
-  ink_mutex_acquire(&lock);
-  ink_cond_signal(&might_have_data);
-  ink_mutex_release(&lock);
-}
-
 TS_INLINE int
 ProtectedQueue::try_signal()
 {
