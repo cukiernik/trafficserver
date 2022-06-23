@@ -45,10 +45,8 @@ class RefCountObj : public ForceVFPTToTop
 {
 public:
   RefCountObj() {}
-  RefCountObj(const RefCountObj &s)
+  RefCountObj(const RefCountObj &)
   {
-    (void)s;
-    return;
   }
 
   ~RefCountObj() override {}
