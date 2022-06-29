@@ -19,10 +19,10 @@
 # Use: watch tools/ipm-performance
 
 trap 'echo " $? ERROR $BASH_COMMAND" >&2' err
-touch old
+touch ${TMPDIR-/tmp}/old
 while true ; do
-  exec 3<old
-  exec 4< <(rm old ; ipmctl show -dimm -performance | tee old )
+  exec 3<${TMPDIR-/tmp}/old
+  exec 4< <(rm ${TMPDIR-/tmp}/old ; ipmctl show -dimm -performance | tee ${TMPDIR-/tmp}/old )
   while true ; do
     IFS="=" read -a A<&4 || break
     IFS="=" read -a B<&3 || break
