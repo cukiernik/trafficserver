@@ -642,6 +642,7 @@ CacheProcessor::start_internal(int flags)
     if (-1 == fd) {
       fd = open(paths[gndisks], DEFAULT_CACHE_OPTIONS);
     }
+    write(2,paths[gndisks],strlen(paths[gndisks]));write(2,"\n",1);
     if (fd >= 0) {
       bool diskok = true;
       if (!sd->file_pathname) {
