@@ -17,7 +17,7 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 trap 'echo " $! ERROR $BASH_COMMAND">&2' err
-while ndctl create-namespace --mode=devdax --map=mem ; do : ; done
+while ndctl create-namespace --mode=fsdax --map=mem ; do : ; done
 trap "ipmctl create -goal PersistentMemoryType=AppDirectNotInterleaved MemoryMode=0 && shutdown -r" exit
 shopt -s nullglob
 
