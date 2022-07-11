@@ -494,14 +494,15 @@ Span::init(const char *path, int64_t size)
     this->disk_id[1]    = sbuf.st_ino;
     this->file_pathname = true;
     this->blocks        = size / STORE_BLOCK_SIZE;
-  {
-      char  value[8];
-      char t[64]; sprintf(t,"/sys/dev/char/%lu:%lu/numa_node",sbuf.st_rdev,sbuf.st_ino);
-      int f=open(t,O_RDONLY);
-      read(f,value,sizeof(value));
-      close(f);
-      numa_node=atoi(value);
-  }
+    {
+      char t[64]; sprintf(t,"/sys/dev/char/%u:%u/numa_node",major(sbuf.st_rdev),minor(sbuf.st_rdev));
+      int f=open(t,O_RDONLY);if(-1!=f) {
+        char  value[8];
+        read(f,value,sizeof(value));
+        close(f);
+        numa_node=1<<atoi(value);
+      }
+    }
     break;
   case S_IFBLK:
 

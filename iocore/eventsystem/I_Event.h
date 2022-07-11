@@ -208,7 +208,9 @@ public:
   void free();
 
   EThread *ethread = nullptr;
-
+ #if TS_USE_NUMA_NODE
+  unsigned long  numa_node=-1;
+#endif
   unsigned int in_the_prot_queue : 1;
   unsigned int in_the_priority_queue : 1;
   unsigned int immediate : 1;

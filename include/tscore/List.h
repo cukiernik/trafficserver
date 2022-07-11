@@ -167,6 +167,9 @@ public:
   }
   void push(C *e);
   C *pop();
+#if TS_USE_NUMA_NODE
+  C *pop(unsigned long numa_node);
+#endif
   void
   clear()
   {
@@ -209,6 +212,22 @@ SLL<C, L>::pop()
   }
   return ret;
 }
+#if TS_USE_NUMA_NODE
+template <class C, class L>
+inline C *
+SLL<C, L>::pop(unsigned long numa_node)
+{
+  for(C **ret = &head;*ret;ret=&next(*ret)) {
+      if((*ret)->numa_node&&numa_node){
+          C*r=*ret;
+          *ret=next(r);
+          return r;
+      }
+  }
+  return nullptr;
+}
+#endif
+//as above
 
 //
 //      List descriptor for doubly-linked list of objects of type C.
@@ -896,11 +915,19 @@ template <class C, class L = typename C::Link_link> struct AtomicSLL {
   {
     ink_atomiclist_push(&al, c);
   }
+#ifdef TS_USE_NUMA_NODE
+  C *
+  pop(unsigned long numa_node)
+  {
+    return (C *)ink_atomiclist_pop(&al,numa_node);
+  }
+#else
   C *
   pop()
   {
     return (C *)ink_atomiclist_pop(&al);
   }
+#endif
   C *
   popall()
   {

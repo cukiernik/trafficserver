@@ -60,28 +60,48 @@ ProtectedQueue::enqueue(Event *e)
     }
   }
 }
-
+#if TS_USE_NUMA_NODE
 void
-ProtectedQueue::dequeue_external()
+ProtectedQueue::dequeue_external(unsigned long numa_node)
 {
-  Event *e = static_cast<Event *>(ink_atomiclist_popall(&al));
   // invert the list, to preserve order
-  SLL<Event, Event::Link_link> l, t;
-  t.head = e;
-  while ((e = t.pop())) {
-    l.push(e);
+  SLL<Event, Event::Link_link> l, t(static_cast<Event *>(ink_atomiclist_popall(&al)));
+  while (Event *e = t.pop()) {
+      if(e->numa_node & numa_node)
+          l.push(e);
+      else
+          ink_atomiclist_push(&al,e);
   }
   // insert into localQueue
-  while ((e = l.pop())) {
+  while (Event *e = l.pop()) {
     if (!e->cancelled) {
       localQueue.enqueue(e);
     } else {
       e->mutex = nullptr;
       eventAllocator.free(e);
     }
-    break; // test dekolejkowania pojedynczego. Czy zmniejszy sie latencja?
   }
 }
+#else
+void
+ProtectedQueue::dequeue_external()
+{
+  // invert the list, to preserve order
+  SLL<Event, Event::Link_link> l, t(static_cast<Event *>(ink_atomiclist_popall(&al)));
+  while (Event *e = t.pop()) {
+          l.push(e);
+  }
+  // insert into localQueue
+  while (Event *e = l.pop()) {
+    if (!e->cancelled) {
+      localQueue.enqueue(e);
+    } else {
+      e->mutex = nullptr;
+      eventAllocator.free(e);
+    }
+  }
+}
+#endif
 
 void
 ProtectedQueue::wait(ink_hrtime timeout)

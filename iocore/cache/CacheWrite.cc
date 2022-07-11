@@ -761,6 +761,9 @@ Vol::evac_range(off_t low, off_t high, int evac_phase)
     }
     if (first) {
       first->f.done       = 1;
+#if TS_USE_NUMA_NODE
+      io.numa_node=numa_node;
+#endif
       io.aiocb.aio_fildes = fd;
       io.aiocb.aio_nbytes = dir_approx_size(&first->dir);
       io.aiocb.aio_offset = this->vol_offset(&first->dir);
@@ -1118,6 +1121,9 @@ Lagain:
   // set write limit
   header->agg_pos = header->write_pos + agg_buf_pos;
 
+#if TS_USE_NUMA_NODE
+  io.numa_node=numa_node;
+#endif
   io.aiocb.aio_fildes = fd;
   io.aiocb.aio_offset = header->write_pos;
   io.aiocb.aio_buf    = agg_buffer;

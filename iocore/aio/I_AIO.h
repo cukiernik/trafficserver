@@ -102,6 +102,9 @@ struct AIOCallback : public Continuation {
   ink_aiocb aiocb;
   Action action;
   EThread *thread   = AIO_CALLBACK_THREAD_ANY;
+#if TS_USE_NUMA_NODE
+  unsigned long numa_node = -1;
+#endif
   AIOCallback *then = nullptr;
   // set on return from aio_read/aio_write
   int64_t aio_result = 0;

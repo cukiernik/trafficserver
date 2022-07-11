@@ -90,7 +90,9 @@ struct CacheDisk : public Continuation {
   int hw_sector_size      = 0;
 #if TS_USE_MMAP
   void *fd = MAP_FAILED;
-  int numa_node = -1;
+#if TS_USE_NUMA_NODE
+  unsigned long numa_node = -1;
+#endif
 #else
   int fd = -1;
 #endif

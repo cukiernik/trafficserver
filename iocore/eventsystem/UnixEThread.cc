@@ -193,14 +193,12 @@ static unsigned long numa_node()
 void
 EThread::process_queue(Que(Event, link) * NegativeQueue, int *ev_count, int *nq_count)
 {
-  Event *e;
-
   // Move events from the external thread safe queues to the local queue.
-  EventQueueExternal.dequeue_external();
-
+  numa_node=1<<::numa_node();
+  EventQueueExternal.dequeue_external(numa_node);
   // execute all the available external events that have
   // already been dequeued
-  while ((e = EventQueueExternal.dequeue_local())) {
+  while (Event *e = EventQueueExternal.dequeue_local()) {
     ++(*ev_count);
     if (e->cancelled) {
       free_event(e);
@@ -229,7 +227,6 @@ EThread::process_queue(Que(Event, link) * NegativeQueue, int *ev_count, int *nq_
 void
 EThread::execute_regular()
 {
-  Event *e;
   Que(Event, link) NegativeQueue;
   ink_hrtime next_time;
   ink_hrtime delta;            // time spent in the event loop
@@ -269,8 +266,7 @@ EThread::execute_regular()
       done_one = false;
       // execute all the eligible internal events
       EventQueue.check_ready(loop_start_time, this);
-      while ((e = EventQueue.dequeue_ready(cur_time))) {
-        ink_assert(e);
+      while (Event *e = EventQueue.dequeue_ready(cur_time)) {
         ink_assert(e->timeout_at > 0);
         if (e->cancelled) {
           free_event(e);
@@ -286,7 +282,7 @@ EThread::execute_regular()
       process_queue(&NegativeQueue, &ev_count, &nq_count);
 
       // execute poll events
-      while ((e = NegativeQueue.dequeue())) {
+      while (Event*e = NegativeQueue.dequeue()) {
         process_event(e, EVENT_POLL);
       }
     }

@@ -42,6 +42,7 @@ struct ProtectedQueue {
   void enqueue_local(Event *e); // Safe when called from the same thread
   Event *dequeue_local();
   void dequeue_external();       // Dequeue any external events.
+  void dequeue_external(unsigned long numa_node=-1);       // Dequeue external events for node.
   void wait(ink_hrtime timeout); // Wait for @a timeout nanoseconds on a condition variable if there are no events.
 
   InkAtomicList al;

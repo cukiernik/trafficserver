@@ -235,7 +235,11 @@ struct InkAtomicList {
 void ink_atomiclist_init(InkAtomicList *l, const char *name, uint32_t offset_to_next);
 
 void *ink_atomiclist_push(InkAtomicList *l, void *item);
+#ifdef TS_USE_NUMA_NODE
+void *ink_atomiclist_pop(InkAtomicList *l, unsigned long numa_node);
+#else
 void *ink_atomiclist_pop(InkAtomicList *l);
+#endif
 void *ink_atomiclist_popall(InkAtomicList *l);
 /*
  * WARNING WARNING WARNING WARNING WARNING WARNING WARNING

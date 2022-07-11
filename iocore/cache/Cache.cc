@@ -741,7 +741,9 @@ CacheProcessor::start_internal(int flags)
 #if AIO_MODE == AIO_MODE_NATIVE
     eventProcessor.schedule_imm(new DiskInit(gdisks[j], paths[j], blocks, skip, sector_sizes[j], fds[j], clear));
 #else
+#if TS_USE_NUMA_NODE
     gdisks[j]->numa_node=sd->numa_node;
+#endif
     gdisks[j]->open(paths[j], blocks, skip, sector_sizes[j], fds[j], clear);
 #endif
 
@@ -1238,6 +1240,9 @@ Vol::clear_dir()
 
   SET_HANDLER(&Vol::handle_dir_clear);
 
+#if TS_USE_NUMA_NODE
+  io.numa_node=numa_node;
+#endif
   io.aiocb.aio_fildes = fd;
   io.aiocb.aio_buf    = raw_dir;
   io.aiocb.aio_nbytes = dir_len;
@@ -1319,6 +1324,9 @@ Vol::init(char *s, off_t blocks, off_t dir_skip, bool clear)
 
   for (unsigned i = 0; i < countof(init_info->vol_aio); i++) {
     AIOCallback *aio      = &(init_info->vol_aio[i]);
+#if TS_USE_NUMA_NODE
+    aio->numa_node=numa_node;
+#endif
     aio->aiocb.aio_fildes = fd;
     aio->aiocb.aio_buf    = &(init_info->vol_h_f[i * STORE_BLOCK_SIZE]);
     aio->aiocb.aio_nbytes = footerlen;
@@ -1677,6 +1685,9 @@ Ldone : {
 
   for (int i = 0; i < 3; i++) {
     AIOCallback *aio      = &(init_info->vol_aio[i]);
+#if TS_USE_NUMA_NODE
+    aio->numa_node=numa_node;
+#endif
     aio->aiocb.aio_fildes = fd;
     aio->action           = this;
     aio->thread           = AIO_CALLBACK_THREAD_ANY;
@@ -1748,6 +1759,9 @@ Vol::handle_header_read(int event, void *data)
       op = op->then;
     }
 
+#if TS_USE_NUMA_NODE
+    io.numa_node=numa_node;
+#endif
     io.aiocb.aio_fildes = fd;
     io.aiocb.aio_nbytes = this->dirlen();
     io.aiocb.aio_buf    = raw_dir;
@@ -2123,6 +2137,9 @@ Cache::open(bool clear, bool /* fix ATS_UNUSED */)
             CacheDisk *d                = cp->disk_vols[i]->disk;
             cp->vols[vol_no]->disk      = d;
             cp->vols[vol_no]->fd        = d->fd;
+#if TS_USE_NUMA_NODE
+            cp->vols[vol_no]->numa_node = d->numa_node;
+#endif
             cp->vols[vol_no]->cache     = this;
             cp->vols[vol_no]->cache_vol = cp;
             blocks                      = q->b->len;
@@ -2200,6 +2217,7 @@ unmarshal_helper(Doc *doc, Ptr<IOBufferData> &buf, int &okay)
 int
 CacheVC::handleReadDone(int event, Event *e)
 {
+  auto numa_node=vol->numa_node;
   cancel_trigger();
   ink_assert(this_ethread() == mutex->thread_holding);
 
@@ -2353,6 +2371,9 @@ CacheVC::handleRead(int /* event ATS_UNUSED */, Event * /* e ATS_UNUSED */)
     return EVENT_RETURN;
   }
 
+#if TS_USE_NUMA_NODE
+  io.numa_node=vol->numa_node;
+#endif
   io.aiocb.aio_fildes = vol->fd;
   io.aiocb.aio_offset = vol->vol_offset(&dir);
   if (static_cast<off_t>(io.aiocb.aio_offset + io.aiocb.aio_nbytes) > static_cast<off_t>(vol->skip + vol->len)) {
@@ -2361,7 +2382,10 @@ CacheVC::handleRead(int /* event ATS_UNUSED */, Event * /* e ATS_UNUSED */)
   buf              = new_IOBufferData(iobuffer_size_to_index(io.aiocb.aio_nbytes, MAX_BUFFER_SIZE_INDEX), MEMALIGNED);
   io.aiocb.aio_buf = buf->data();
   io.action        = this;
-  io.thread        = mutex->thread_holding->tt == DEDICATED ? AIO_CALLBACK_THREAD_ANY : mutex->thread_holding;
+  switch(vol->numa_node){
+  default: io.numa_node = vol->numa_node; // pass
+  case -1: io.thread        = mutex->thread_holding->tt == DEDICATED ? AIO_CALLBACK_THREAD_ANY : mutex->thread_holding;
+  }
   SET_HANDLER(&CacheVC::handleReadDone);
 #if TS_USE_MMAP
   io.mutex = mutex;

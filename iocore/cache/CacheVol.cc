@@ -369,6 +369,9 @@ CacheVC::scanObject(int /* event ATS_UNUSED */, Event * /* e ATS_UNUSED */)
   }
 
 Lread:
+#if TS_USE_NUMA_NODE
+  io.numa_node=vol->numa_node;
+#endif
   io.aiocb.aio_fildes = vol->fd;
   if (static_cast<off_t>(io.aiocb.aio_offset + io.aiocb.aio_nbytes) > static_cast<off_t>(vol->skip + vol->len)) {
     io.aiocb.aio_nbytes = vol->skip + vol->len - io.aiocb.aio_offset;

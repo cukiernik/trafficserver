@@ -90,6 +90,9 @@ public:
       The event loop should not spin. To avoid that a tail handler is called to block for a limited time.
       This is a protocol class that defines the interface to the handler.
   */
+#if TS_USE_NUMA_NODE
+    unsigned long numa_node=-1;
+#endif
   class LoopTailHandler
   {
   public:
@@ -327,6 +330,7 @@ public:
 
   void execute() override;
   void execute_regular();
+  void execute_numa_node();
   void process_queue(Que(Event, link) * NegativeQueue, int *ev_count, int *nq_count);
   void process_event(Event *e, int calling_code);
   void free_event(Event *e);

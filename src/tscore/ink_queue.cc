@@ -479,12 +479,16 @@ ink_atomiclist_init(InkAtomicList *l, const char *name, uint32_t offset_to_next)
 }
 
 void *
+#ifdef TS_USE_NUMA_NODE
+ink_atomiclist_pop(InkAtomicList *l,unsigned long numa_node)
+#else
 ink_atomiclist_pop(InkAtomicList *l)
+#endif
 {
   head_p item;
-  head_p next;
   int result = 0;
   do {
+    head_p next;
     INK_QUEUE_LD(item, l->head);
     if (TO_PTR(FREELIST_POINTER(item)) == nullptr) {
       return nullptr;
@@ -499,13 +503,15 @@ ink_atomiclist_pop(InkAtomicList *l)
   }
 }
 
+unsigned volatile ink_atomiclist_popall_max;
+
 void *
 ink_atomiclist_popall(InkAtomicList *l)
 {
   head_p item;
-  head_p next;
   int result = 0;
   do {
+    head_p next;
     INK_QUEUE_LD(item, l->head);
     if (TO_PTR(FREELIST_POINTER(item)) == nullptr) {
       return nullptr;
@@ -517,11 +523,15 @@ ink_atomiclist_popall(InkAtomicList *l)
     void *ret = TO_PTR(FREELIST_POINTER(item));
     void *e   = ret;
     /* fixup forward pointers */
+    unsigned count=0;
     while (e) {
       void *n                        = TO_PTR(*ADDRESS_OF_NEXT(e, l->offset));
       *ADDRESS_OF_NEXT(e, l->offset) = n;
       e                              = n;
+      count++;
     }
+
+    if(ink_atomiclist_popall_max<count)ink_atomiclist_popall_max=count;
     return ret;
   }
 }
