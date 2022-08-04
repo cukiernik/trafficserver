@@ -40,6 +40,7 @@ TESTS += \
 	traffic_logstats/tests/test_logstats_summary
 
 traffic_logstats_traffic_logstats_SOURCES = \
+	shared/IDSA.cc \
     traffic_logstats/logstats.cc
 
 traffic_logstats_traffic_logstats_LDADD = \

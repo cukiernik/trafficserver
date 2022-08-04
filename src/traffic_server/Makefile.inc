@@ -44,6 +44,7 @@ traffic_server_traffic_server_LDFLAGS = \
 	@BORINGOCSP_LDFLAGS@
 
 traffic_server_traffic_server_SOURCES = \
+	shared/IDSA.cc \
 	traffic_server/Crash.cc \
 	traffic_server/EventName.cc \
 	traffic_server/EventName.h \

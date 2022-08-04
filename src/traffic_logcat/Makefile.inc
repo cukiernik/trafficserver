@@ -36,6 +36,7 @@ traffic_logcat_traffic_logcat_LDFLAGS = \
 	@YAMLCPP_LDFLAGS@
 
 traffic_logcat_traffic_logcat_SOURCES = \
+	shared/IDSA.cc \
 	traffic_logcat/logcat.cc
 
 traffic_logcat_traffic_logcat_LDADD = \

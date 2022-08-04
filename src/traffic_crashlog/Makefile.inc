@@ -32,6 +32,7 @@ traffic_crashlog_traffic_crashlog_LDFLAGS = \
     @OPENSSL_LDFLAGS@
 
 traffic_crashlog_traffic_crashlog_SOURCES = \
+	shared/IDSA.cc \
 	traffic_crashlog/procinfo.cc \
 	traffic_crashlog/traffic_crashlog.cc \
 	traffic_crashlog/traffic_crashlog.h

@@ -41,6 +41,8 @@ namespace IDSA {
     // calling DSA_Devices_Container::getInstance()
     // It also contains methods which select Device by numa node.
     class DSA_Devices_Container {
+	DSA_Devices_Container(DSA_Devices_Container const&) = delete;
+	void operator=(DSA_Devices_Container const&) = delete;
         public:
             enum class STATUS { OK, INVALID_NUMA_NODES, INVALID_ACCFG_CTX, MEMCPY_FAILED, MEMFILL_FAILED, ALREADY_INITIALIZED }; 
 
@@ -61,10 +63,6 @@ namespace IDSA {
             
         public:
             static DSA_Devices_Container& getInstance(); // gets instance of singleton
-
-            DSA_Devices_Container(DSA_Devices_Container const&); // is deleted (singleton)
-            void operator=(DSA_Devices_Container const&); // is deleted (singleton)
-    
             STATUS initialize();
             void *memfill_on_DSA( void *dest, const void *src, std::size_t size ); // gets dest numa node and perform memfill on DSA with this numa node
             void *memcpy_on_DSA( void *dest, const void *src, std::size_t size ); // gets dest numa node and perform memcpy on DSA with this numa node

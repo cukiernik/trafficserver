@@ -32,6 +32,7 @@ traffic_ctl_traffic_ctl_CPPFLAGS = \
     $(TS_INCLUDES)
 
 traffic_ctl_traffic_ctl_SOURCES = \
+	shared/IDSA.cc \
 	traffic_ctl/alarm.cc \
 	traffic_ctl/config.cc \
 	traffic_ctl/metric.cc \

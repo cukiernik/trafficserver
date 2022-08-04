@@ -36,6 +36,7 @@ traffic_manager_traffic_manager_LDFLAGS = \
 	@YAMLCPP_LDFLAGS@
 
 traffic_manager_traffic_manager_SOURCES = \
+	shared/IDSA.cc \
 	traffic_manager/AddConfigFilesHere.cc \
 	traffic_manager/traffic_manager.cc
 

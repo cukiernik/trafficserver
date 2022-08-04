@@ -32,6 +32,7 @@ traffic_layout_traffic_layout_LDFLAGS =	\
     @YAMLCPP_LDFLAGS@ $(BROTLIENC_LIB)
 
 traffic_layout_traffic_layout_SOURCES = \
+	shared/IDSA.cc \
 	traffic_layout/traffic_layout.cc \
 	traffic_layout/file_system.cc \
 	traffic_layout/file_system.h \

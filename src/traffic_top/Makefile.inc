@@ -37,6 +37,7 @@ traffic_top_traffic_top_LDFLAGS = \
 	@OPENSSL_LDFLAGS@
 
 traffic_top_traffic_top_SOURCES = \
+	shared/IDSA.cc \
     traffic_top/traffic_top.cc
 
 traffic_top_traffic_top_LDADD = \
