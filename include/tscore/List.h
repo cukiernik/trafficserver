@@ -919,7 +919,7 @@ template <class C, class L = typename C::Link_link> struct AtomicSLL {
   C *
   pop(unsigned long numa_node)
   {
-    return (C *)ink_atomiclist_pop(&al,numa_node);
+    return (C *)ink_atomiclist_pop(&al);
   }
 #else
   C *

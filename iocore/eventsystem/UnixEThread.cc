@@ -21,6 +21,7 @@
   limitations under the License.
  */
 
+#include <numa.h>
 #include <tscore/TSSystemState.h>
 
 //////////////////////////////////////////////////////////////////////
@@ -302,7 +303,7 @@ EThread::execute_regular()
       sleep_time = 0;
     }
 
-    tail_cb->waitForActivity(sleep_time);
+    tail_cb->waitForActivity(sleep_time, numa_node);
 
     // loop cleanup
     loop_finish_time = Thread::get_hrtime_updated();

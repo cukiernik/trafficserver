@@ -99,7 +99,7 @@ public:
     /** Called at the end of the event loop to block.
         @a timeout is the maximum length of time (in ns) to block.
     */
-    virtual int waitForActivity(ink_hrtime timeout) = 0;
+    virtual int waitForActivity(ink_hrtime timeout, unsigned long) = 0;
     /** Unblock.
 
         This is required to unblock (wake up) the block created by calling @a cb.
@@ -367,9 +367,9 @@ public:
     DefaultTailHandler(ProtectedQueue &q) : _q(q) {}
 
     int
-    waitForActivity(ink_hrtime timeout) override
+    waitForActivity(ink_hrtime timeout, unsigned long numa_node) override
     {
-      _q.wait(Thread::get_hrtime() + timeout);
+      _q.wait(Thread::get_hrtime() + timeout, numa_node);
       return 0;
     }
     void

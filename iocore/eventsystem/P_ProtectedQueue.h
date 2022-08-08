@@ -34,9 +34,14 @@
 TS_INLINE
 ProtectedQueue::ProtectedQueue()
 {
-  Event e;
+  Event e; // tu nie jest potrzebna alokacja, tylko rozmiar elementu
   ink_mutex_init(&lock);
+#if TS_USE_NUMA_NODE
+  for(auto& i:al)
+      ink_atomiclist_init(&i, "ProtectedQueue", (char*)&e.link.next - (char*)&e);
+#else
   ink_atomiclist_init(&al, "ProtectedQueue", (char *)&e.link.next - (char *)&e);
+#endif
   ink_cond_init(&might_have_data);
 }
 

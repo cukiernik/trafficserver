@@ -49,7 +49,12 @@ ProtectedQueue::enqueue(Event *e)
   ink_assert(!e->in_the_prot_queue && !e->in_the_priority_queue);
   EThread *e_ethread   = e->ethread;
   e->in_the_prot_queue = 1;
+#if TS_USE_NUMA_NODE
+  ink_assert(e->numa_node<sizeof(al)/sizeof(*al));
+  bool was_empty = (ink_atomiclist_push(al+1+e->numa_node, e)==nullptr);
+#else
   bool was_empty       = (ink_atomiclist_push(&al, e) == nullptr);
+#endif
 
   if (was_empty) {
     EThread *inserting_thread = this_ethread();
@@ -64,16 +69,20 @@ ProtectedQueue::enqueue(Event *e)
 void
 ProtectedQueue::dequeue_external(unsigned long numa_node)
 {
-  // invert the list, to preserve order
-  SLL<Event, Event::Link_link> l, t(static_cast<Event *>(ink_atomiclist_popall(&al)));
-  while (Event *e = t.pop()) {
-      if(e->numa_node & numa_node)
-          l.push(e);
-      else
-          ink_atomiclist_push(&al,e);
+#if TS_USE_NUMA_NODE
+  ink_assert(numa_node<sizeof(al)/sizeof(*al));
+  SLL<Event, Event::Link_link> t(static_cast<Event*>(ink_atomiclist_pop(al+1+numa_node)));
+  Event*e=t.pop();
+  if(!e) {
+      SLL<Event,Event::Link_link> t(static_cast<Event*>(ink_atomiclist_pop(al+0)));
+      e=t.pop();
+      if(!e)
+          return;
   }
-  // insert into localQueue
-  while (Event *e = l.pop()) {
+#else
+  SLL<Event, Event::Link_link> t(static_cast<Event *>(ink_atomiclist_popall(&al)));
+#endif
+  if (Event *e = t.pop()) {
     if (!e->cancelled) {
       localQueue.enqueue(e);
     } else {
@@ -86,25 +95,14 @@ ProtectedQueue::dequeue_external(unsigned long numa_node)
 void
 ProtectedQueue::dequeue_external()
 {
-  // invert the list, to preserve order
-  SLL<Event, Event::Link_link> l, t(static_cast<Event *>(ink_atomiclist_popall(&al)));
-  while (Event *e = t.pop()) {
-          l.push(e);
-  }
-  // insert into localQueue
-  while (Event *e = l.pop()) {
-    if (!e->cancelled) {
+  if (Event *e = t.pop()) {
       localQueue.enqueue(e);
-    } else {
-      e->mutex = nullptr;
-      eventAllocator.free(e);
-    }
   }
 }
 #endif
 
 void
-ProtectedQueue::wait(ink_hrtime timeout)
+ProtectedQueue::wait(ink_hrtime timeout, unsigned long numa_node)
 {
   /* If there are no external events available, will do a cond_timedwait.
    *
@@ -112,7 +110,12 @@ ProtectedQueue::wait(ink_hrtime timeout)
    *   - And then the Event Thread goes to sleep and waits for the wakeup signal of `EThread::might_have_data`,
    *   - The `EThread::lock` will be locked again when the Event Thread wakes up.
    */
+#if TS_USE_NUMA_NODE
+    ink_assert(numa_node<sizeof(al)/sizeof(*al));
+    if (INK_ATOMICLIST_EMPTY(al[0]) && INK_ATOMICLIST_EMPTY(al[1+numa_node]) && localQueue.empty()) {
+#else
   if (INK_ATOMICLIST_EMPTY(al) && localQueue.empty()) {
+#endif
     timespec ts = ink_hrtime_to_timespec(timeout);
     ink_cond_timedwait(&might_have_data, &lock, &ts);
   }

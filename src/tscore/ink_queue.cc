@@ -480,7 +480,7 @@ ink_atomiclist_init(InkAtomicList *l, const char *name, uint32_t offset_to_next)
 
 void *
 #ifdef TS_USE_NUMA_NODE
-ink_atomiclist_pop(InkAtomicList *l,unsigned long numa_node)
+ink_atomiclist_pop(InkAtomicList *l)
 #else
 ink_atomiclist_pop(InkAtomicList *l)
 #endif

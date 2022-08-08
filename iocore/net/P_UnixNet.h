@@ -318,7 +318,7 @@ public:
   static std::bitset<std::numeric_limits<unsigned int>::digits> active_thread_types;
 
   int mainNetEvent(int event, Event *data);
-  int waitForActivity(ink_hrtime timeout) override;
+  int waitForActivity(ink_hrtime timeout,unsigned long) override;
   void process_enabled_list();
   void process_ready_list();
   void manage_keep_alive_queue();

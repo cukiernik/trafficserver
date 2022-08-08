@@ -43,9 +43,12 @@ struct ProtectedQueue {
   Event *dequeue_local();
   void dequeue_external();       // Dequeue any external events.
   void dequeue_external(unsigned long numa_node=-1);       // Dequeue external events for node.
-  void wait(ink_hrtime timeout); // Wait for @a timeout nanoseconds on a condition variable if there are no events.
-
+  void wait(ink_hrtime timeout,unsigned long numa_node); // Wait for @a timeout nanoseconds on a condition variable if there are no events.
+#if TS_USE_NUMA_NODE
+  InkAtomicList al[1+32] __attribute__((aligned( 0x1000))); // index 0 for non numa node assigned, 1 for numa node 0,2 for node 1,..
+#else
   InkAtomicList al;
+#endif
   ink_mutex lock;
   ink_cond might_have_data;
   Que(Event, link) localQueue;
