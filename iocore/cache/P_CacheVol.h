@@ -129,6 +129,7 @@ struct Vol : public Continuation {
   CryptoHash hash_id;
 #if TS_USE_MMAP
   void *fd = MAP_FAILED;
+  int numa_node=-1;
 #else
   int fd = -1;
 #endif

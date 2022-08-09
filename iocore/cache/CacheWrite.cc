@@ -399,8 +399,7 @@ Vol::aggWriteDone(int event, Event *e)
   }
   set_io_not_in_progress();
   // callback ready sync CacheVCs
-  CacheVC *c = nullptr;
-  while ((c = sync.dequeue())) {
+  while (CacheVC *c = sync.dequeue()) {
     if (UINT_WRAP_LTE(c->write_serial + 2, header->write_serial)) {
       eventProcessor.schedule_imm(c, ET_CALL, AIO_EVENT_DONE);
     } else {

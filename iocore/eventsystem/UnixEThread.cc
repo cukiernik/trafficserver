@@ -180,6 +180,16 @@ EThread::process_event(Event *e, int calling_code)
   }
 }
 
+#if TS_USE_NUMA_NODE
+static unsigned long numa_node()
+{
+    unsigned long a,d,c;
+    __asm__ volatile("rdtscp" : "=a" (a), "=d" (d), "=c" (c));
+    fprintf(stderr,"\tnuma_node\t%x\t%x\t%x\n",a,d,c);
+    return (c & 0xFFF000)>>12;
+}
+#endif
+
 void
 EThread::process_queue(Que(Event, link) * NegativeQueue, int *ev_count, int *nq_count)
 {

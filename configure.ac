@@ -1680,6 +1680,18 @@ AS_IF([test "x$enable_linux_native_aio" = "xyes"], [
 AC_MSG_RESULT([$enable_linux_native_aio])
 TS_ARG_ENABLE_VAR([use], [linux_native_aio])
 
+AC_MSG_CHECKING([enable Numa Node])
+AC_ARG_ENABLE([numa_node],
+  [AS_HELP_STRING([--enable-numa_node], [WARNING this is experimental for Intel Persitent Memory @<:@default=no@:>@])],
+  AS_IF( test ${enable_numa_node} != "no" , [
+    test ${enable_numa_node} == "yes" && enable_ipm=ats #username
+    AC_SUBST(user_numa_node, $enable_numa_node) ]
+    enable_ipm=yes
+  )
+)
+AC_MSG_RESULT([$enable_ipm])
+TS_ARG_ENABLE_VAR([use], [numa_node])
+
 AC_MSG_CHECKING([enable Intel Persistent Memory])
 AC_ARG_ENABLE([ipm],
   [AS_HELP_STRING([--enable-ipm=${USER}], [WARNING this is experimental Intel Persitent Memory @<:@default=no@:>@])],

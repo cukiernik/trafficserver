@@ -741,6 +741,7 @@ CacheProcessor::start_internal(int flags)
 #if AIO_MODE == AIO_MODE_NATIVE
     eventProcessor.schedule_imm(new DiskInit(gdisks[j], paths[j], blocks, skip, sector_sizes[j], fds[j], clear));
 #else
+    gdisks[j]->numa_node=sd->numa_node;
     gdisks[j]->open(paths[j], blocks, skip, sector_sizes[j], fds[j], clear);
 #endif
 
@@ -2275,8 +2276,7 @@ CacheVC::handleReadDone(int event, Event *e)
         }
       }
       (void)e; // Avoid compiler warnings
-      bool http_copy_hdr = false;
-      http_copy_hdr =
+      bool http_copy_hdr =
         cache_config_ram_cache_compress && !f.doc_from_ram_cache && doc->doc_type == CACHE_FRAG_TYPE_HTTP && doc->hlen;
       // If http doc we need to unmarshal the headers before putting in the ram cache
       // unless it could be compressed
