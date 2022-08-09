@@ -126,6 +126,8 @@ public:
 class Continuation : private force_VFPT_to_top
 {
 public:
+  enum numa_node {Node0=0,node1=1,allnodes=-1};
+  enum numa_node numa_node = allnodes;
   /**
     The current continuation handler function.
 

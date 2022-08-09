@@ -2370,7 +2370,6 @@ CacheVC::handleRead(int /* event ATS_UNUSED */, Event * /* e ATS_UNUSED */)
     SET_HANDLER(&CacheVC::handleReadDone);
     return EVENT_RETURN;
   }
-
 #if TS_USE_NUMA_NODE
   io.numa_node=vol->numa_node;
 #endif
@@ -2384,7 +2383,7 @@ CacheVC::handleRead(int /* event ATS_UNUSED */, Event * /* e ATS_UNUSED */)
   io.action        = this;
   switch(vol->numa_node){
   default: io.numa_node = vol->numa_node; // pass
-  case ProtectedQueue::allnodes: io.thread        = mutex->thread_holding->tt == DEDICATED ? AIO_CALLBACK_THREAD_ANY : mutex->thread_holding;
+  case Continuation::allnodes: io.thread        = mutex->thread_holding->tt == DEDICATED ? AIO_CALLBACK_THREAD_ANY : mutex->thread_holding;
   }
   SET_HANDLER(&CacheVC::handleReadDone);
 #if TS_USE_MMAP

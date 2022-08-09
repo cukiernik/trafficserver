@@ -44,9 +44,8 @@ struct ProtectedQueue {
   Event *dequeue_local();
 #if TS_USE_NUMA_NODE
   InkAtomicList al[1+32] __attribute__((aligned( 0x1000))); // index 0 for non numa node assigned, 1 for numa node 0,2 for node 1,..
-  enum numa_node {Node0=0,node1=1,allnodes=-1};
-  void dequeue_external(enum numa_node numa_node);       // Dequeue external events for node.
-  void wait(ink_hrtime timeout,enum numa_node numa_node); // Wait for @a timeout nanoseconds on a condition variable if there are no events.
+  void dequeue_external(enum Continuation::numa_node numa_node);       // Dequeue external events for node.
+  void wait(ink_hrtime timeout,enum Continuation::numa_node numa_node); // Wait for @a timeout nanoseconds on a condition variable if there are no events.
 #else
   InkAtomicList al;
   void dequeue_external();       // Dequeue any external events.

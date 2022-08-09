@@ -500,7 +500,7 @@ Span::init(const char *path, int64_t size)
         char  value[8];
         read(f,value,sizeof(value));
         close(f);
-        numa_node=static_cast<enum  ProtectedQueue::numa_node>(atoi(value));
+        numa_node=static_cast<enum  Continuation::numa_node>(atoi(value));
       }
     }
     break;

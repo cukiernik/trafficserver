@@ -91,7 +91,7 @@ struct CacheDisk : public Continuation {
 #if TS_USE_MMAP
   void *fd = MAP_FAILED;
 #if TS_USE_NUMA_NODE
-  enum  ProtectedQueue::numa_node numa_node = ProtectedQueue::allnodes;
+  enum  Continuation::numa_node numa_node = Continuation::allnodes;
 #endif
 #else
   int fd = -1;

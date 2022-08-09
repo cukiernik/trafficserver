@@ -74,7 +74,7 @@ struct span_diskid_t {
 // Those on the same disk should be in a linked list.
 //
 struct Span {
-  enum  ProtectedQueue::numa_node numa_node = ProtectedQueue::allnodes;
+  enum  Continuation::numa_node numa_node = Continuation::allnodes;
   int64_t blocks          = 0; // in STORE_BLOCK_SIZE blocks
   int64_t offset          = 0; // used only if (file == true); in bytes
   unsigned hw_sector_size = DEFAULT_HW_SECTOR_SIZE;

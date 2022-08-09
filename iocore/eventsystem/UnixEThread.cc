@@ -182,12 +182,12 @@ EThread::process_event(Event *e, int calling_code)
 }
 
 #if TS_USE_NUMA_NODE
-static enum  ProtectedQueue::numa_node numa_node()
+enum  Continuation::numa_node EThread::numa_node()
 {
     unsigned long a,d,c;
     __asm__ volatile("rdtscp" : "=a" (a), "=d" (d), "=c" (c));
 //    fprintf(stderr,"\tnuma_node\t%06lx\t%08lx%08lx\n",c,d, a);
-    return static_cast<enum  ProtectedQueue::numa_node>((c & 0xFFF000)>>12);
+    return static_cast<enum  Continuation::numa_node>((c & 0xFFF000)>>12);
 }
 #endif
 
@@ -195,7 +195,7 @@ void
 EThread::process_queue(Que(Event, link) * NegativeQueue, int *ev_count, int *nq_count)
 {
   // Move events from the external thread safe queues to the local queue.
-  numa_node=::numa_node();
+  enum Continuation::numa_node numa_node=EThread::numa_node();
   ink_assert((1+numa_node)<33);
   EventQueueExternal.dequeue_external(numa_node);
   // execute all the available external events that have
@@ -304,7 +304,7 @@ EThread::execute_regular()
       sleep_time = 0;
     }
 
-    tail_cb->waitForActivity(sleep_time, numa_node);
+    tail_cb->waitForActivity(sleep_time, numa_node());
 
     // loop cleanup
     loop_finish_time = Thread::get_hrtime_updated();

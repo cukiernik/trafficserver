@@ -474,6 +474,7 @@ aio_thread_main(void *arg)
   AIOCallback *op         = nullptr;
   ink_mutex_acquire(&my_aio_req->aio_mutex);
   for (;;) {
+    enum Continuation::numa_node numa_node=EThread::numa_node();
     do {
       if (TSSystemState::is_event_system_shut_down()) {
         ink_mutex_release(&my_aio_req->aio_mutex);

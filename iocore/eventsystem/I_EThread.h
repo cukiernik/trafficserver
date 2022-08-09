@@ -85,13 +85,13 @@ enum ThreadType {
 class EThread : public Thread
 {
 public:
+  static enum Continuation::numa_node numa_node();
   /** Handler for tail of event loop.
 
       The event loop should not spin. To avoid that a tail handler is called to block for a limited time.
       This is a protocol class that defines the interface to the handler.
   */
 #if TS_USE_NUMA_NODE
-    enum  ProtectedQueue::numa_node numa_node = ProtectedQueue::allnodes;
 #endif
   class LoopTailHandler
   {
@@ -99,7 +99,7 @@ public:
     /** Called at the end of the event loop to block.
         @a timeout is the maximum length of time (in ns) to block.
     */
-    virtual int waitForActivity(ink_hrtime timeout, enum  ProtectedQueue::numa_node ) = 0;
+    virtual int waitForActivity(ink_hrtime timeout, enum  Continuation::numa_node ) = 0;
     /** Unblock.
 
         This is required to unblock (wake up) the block created by calling @a cb.
@@ -367,7 +367,7 @@ public:
     DefaultTailHandler(ProtectedQueue &q) : _q(q) {}
 
     int
-    waitForActivity(ink_hrtime timeout, enum  ProtectedQueue::numa_node numa_node) override
+    waitForActivity(ink_hrtime timeout, enum  Continuation::numa_node numa_node) override
     {
       _q.wait(Thread::get_hrtime() + timeout, numa_node);
       return 0;
