@@ -91,8 +91,7 @@ public:
       This is a protocol class that defines the interface to the handler.
   */
 #if TS_USE_NUMA_NODE
-    enum numa_node {Node0=0,node1=1,allnodes=-1};
-    enum numa_node numa_node = allnodes;
+    enum  ProtectedQueue::numa_node numa_node = ProtectedQueue::allnodes;
 #endif
   class LoopTailHandler
   {
@@ -100,7 +99,7 @@ public:
     /** Called at the end of the event loop to block.
         @a timeout is the maximum length of time (in ns) to block.
     */
-    virtual int waitForActivity(ink_hrtime timeout, unsigned long) = 0;
+    virtual int waitForActivity(ink_hrtime timeout, enum  ProtectedQueue::numa_node ) = 0;
     /** Unblock.
 
         This is required to unblock (wake up) the block created by calling @a cb.
@@ -368,7 +367,7 @@ public:
     DefaultTailHandler(ProtectedQueue &q) : _q(q) {}
 
     int
-    waitForActivity(ink_hrtime timeout, unsigned long numa_node) override
+    waitForActivity(ink_hrtime timeout, enum  ProtectedQueue::numa_node numa_node) override
     {
       _q.wait(Thread::get_hrtime() + timeout, numa_node);
       return 0;

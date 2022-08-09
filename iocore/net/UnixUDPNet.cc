@@ -1052,11 +1052,11 @@ int
 UDPNetHandler::mainNetEvent(int event, Event *e)
 {
   ink_assert(trigger_event == e && event == EVENT_POLL);
-  return this->waitForActivity(net_config_poll_timeout, -1);
+  return this->waitForActivity(net_config_poll_timeout, ProtectedQueue::allnodes);
 }
 
 int
-UDPNetHandler::waitForActivity(ink_hrtime timeout, unsigned long)
+UDPNetHandler::waitForActivity(ink_hrtime timeout, enum  ProtectedQueue::numa_node )
 {
   UnixUDPConnection *uc;
   PollCont *pc = get_UDPPollCont(this->thread);

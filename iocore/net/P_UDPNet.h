@@ -320,7 +320,7 @@ public:
   int startNetEvent(int event, Event *data);
   int mainNetEvent(int event, Event *data);
 
-  int waitForActivity(ink_hrtime timeout,unsigned long) override;
+  int waitForActivity(ink_hrtime timeout,enum  ProtectedQueue::numa_node ) override;
   void signalActivity() override;
 
   UDPNetHandler();

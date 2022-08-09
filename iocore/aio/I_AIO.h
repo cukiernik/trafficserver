@@ -103,7 +103,7 @@ struct AIOCallback : public Continuation {
   Action action;
   EThread *thread   = AIO_CALLBACK_THREAD_ANY;
 #if TS_USE_NUMA_NODE
-  enum EThread::numa_node numa_node = EThread::allnodes;
+  enum  ProtectedQueue::numa_node numa_node = ProtectedQueue::allnodes;
 #endif
   AIOCallback *then = nullptr;
   // set on return from aio_read/aio_write

@@ -478,12 +478,12 @@ NetHandler::mainNetEvent(int event, Event *e)
     return EVENT_CONT;
   } else {
     ink_assert(trigger_event == e && (event == EVENT_INTERVAL || event == EVENT_POLL));
-    return this->waitForActivity(-1,-1);
+    return this->waitForActivity(-1,ProtectedQueue::allnodes);
   }
 }
 
 int
-NetHandler::waitForActivity(ink_hrtime timeout, unsigned long)
+NetHandler::waitForActivity(ink_hrtime timeout, enum  ProtectedQueue::numa_node )
 {
   EventIO *epd = nullptr;
 
