@@ -50,7 +50,8 @@ ProtectedQueue::enqueue(Event *e)
   EThread *e_ethread   = e->ethread;
   e->in_the_prot_queue = 1;
 #if TS_USE_NUMA_NODE
-  ink_assert(e->numa_node<sizeof(al)/sizeof(*al));
+  ink_assert((e->numa_node+1)<sizeof(al)/sizeof(*al));
+  fprintf(stderr,"\t%p:%x=>%p\n",e,e->numa_node,al);
   bool was_empty = (ink_atomiclist_push(al+1+e->numa_node, e)==nullptr);
 #else
   bool was_empty       = (ink_atomiclist_push(&al, e) == nullptr);
@@ -70,7 +71,7 @@ void
 ProtectedQueue::dequeue_external(unsigned long numa_node)
 {
 #if TS_USE_NUMA_NODE
-  ink_assert(numa_node<sizeof(al)/sizeof(*al));
+  ink_assert((numa_node+1)<sizeof(al)/sizeof(*al));
   SLL<Event, Event::Link_link> t(static_cast<Event*>(ink_atomiclist_pop(al+1+numa_node)));
   Event*e=t.pop();
   if(!e) {
@@ -83,6 +84,7 @@ ProtectedQueue::dequeue_external(unsigned long numa_node)
   SLL<Event, Event::Link_link> t(static_cast<Event *>(ink_atomiclist_popall(&al)));
 #endif
   if (Event *e = t.pop()) {
+    fprintf(stderr,"\t%p=>%p:%x\n",al,e,e->numa_node);
     if (!e->cancelled) {
       localQueue.enqueue(e);
     } else {
@@ -111,7 +113,7 @@ ProtectedQueue::wait(ink_hrtime timeout, unsigned long numa_node)
    *   - The `EThread::lock` will be locked again when the Event Thread wakes up.
    */
 #if TS_USE_NUMA_NODE
-    ink_assert(numa_node<sizeof(al)/sizeof(*al));
+    ink_assert((numa_node+1)<sizeof(al)/sizeof(*al));
     if (INK_ATOMICLIST_EMPTY(al[0]) && INK_ATOMICLIST_EMPTY(al[1+numa_node]) && localQueue.empty()) {
 #else
   if (INK_ATOMICLIST_EMPTY(al) && localQueue.empty()) {

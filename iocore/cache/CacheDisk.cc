@@ -68,6 +68,7 @@ CacheDisk::open(char *s, off_t blocks, off_t askip, int ahw_sector_size, int fil
   ink_assert(MAP_FAILED != fd);
 #if TS_USE_NUMA_NODE
   io.numa_node=numa_node;
+  fprintf(stderr,"\t%s\t%x\n",s,numa_node);
 #endif
 #else
   fd = fildes;

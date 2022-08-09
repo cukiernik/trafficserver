@@ -186,7 +186,7 @@ static unsigned long numa_node()
 {
     unsigned long a,d,c;
     __asm__ volatile("rdtscp" : "=a" (a), "=d" (d), "=c" (c));
-    fprintf(stderr,"\tnuma_node\t%x\t%x\t%x\n",a,d,c);
+    fprintf(stderr,"\tnuma_node\t%08x\t%08x%08x\n",c, d, a);
     return (c & 0xFFF000)>>12;
 }
 #endif
@@ -196,6 +196,7 @@ EThread::process_queue(Que(Event, link) * NegativeQueue, int *ev_count, int *nq_
 {
   // Move events from the external thread safe queues to the local queue.
   numa_node=1<<::numa_node();
+  ink_assert((numa_node()+1)<33);
   EventQueueExternal.dequeue_external(numa_node);
   // execute all the available external events that have
   // already been dequeued
