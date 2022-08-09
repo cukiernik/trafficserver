@@ -181,11 +181,11 @@ ink_aio_start()
 
 #if AIO_MODE != AIO_MODE_NATIVE
 
-static void *aio_thread_main(void *arg);
 
 struct AIOThreadInfo : public Continuation {
   AIO_Reqs *req;
   int sleep_wait;
+  void *aio_thread_main(AIOThreadInfo *thr_info);
 
   int
   start(int event, Event *e)
@@ -466,9 +466,8 @@ ink_aio_thread_num_set(int thread_num)
 }
 
 void *
-aio_thread_main(void *arg)
+AIOThreadInfo::aio_thread_main(AIOThreadInfo *thr_info)
 {
-  AIOThreadInfo *thr_info = static_cast<AIOThreadInfo *>(arg);
   AIO_Reqs *my_aio_req    = thr_info->req;
   AIO_Reqs *current_req   = nullptr;
   AIOCallback *op         = nullptr;
