@@ -50,8 +50,8 @@ ProtectedQueue::enqueue(Event *e)
   EThread *e_ethread   = e->ethread;
   e->in_the_prot_queue = 1;
 #if TS_USE_NUMA_NODE
-  ink_assert((e->numa_node+1)<sizeof(al)/sizeof(*al));
   fprintf(stderr,"\t%p:%x=>%p\n",e,e->numa_node,al);
+  ink_assert(e->numa_node&3);
   bool was_empty = (ink_atomiclist_push(al+1+e->numa_node, e)==nullptr);
 #else
   bool was_empty       = (ink_atomiclist_push(&al, e) == nullptr);
@@ -68,7 +68,7 @@ ProtectedQueue::enqueue(Event *e)
 }
 #if TS_USE_NUMA_NODE
 void
-ProtectedQueue::dequeue_external(unsigned long numa_node)
+ProtectedQueue::dequeue_external(enum EThread::numa_node numa_node)
 {
 #if TS_USE_NUMA_NODE
   ink_assert((numa_node+1)<sizeof(al)/sizeof(*al));
@@ -104,7 +104,7 @@ ProtectedQueue::dequeue_external()
 #endif
 
 void
-ProtectedQueue::wait(ink_hrtime timeout, unsigned long numa_node)
+ProtectedQueue::wait(ink_hrtime timeout, enum EThread::numa_node numa_node)
 {
   /* If there are no external events available, will do a cond_timedwait.
    *

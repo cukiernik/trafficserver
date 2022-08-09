@@ -91,7 +91,8 @@ public:
       This is a protocol class that defines the interface to the handler.
   */
 #if TS_USE_NUMA_NODE
-    unsigned long numa_node=-1;
+    enum numa_node {Node0=0,node1=1,allnodes=-1};
+    enum numa_node numa_node = allnodes;
 #endif
   class LoopTailHandler
   {

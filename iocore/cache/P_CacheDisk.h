@@ -91,7 +91,7 @@ struct CacheDisk : public Continuation {
 #if TS_USE_MMAP
   void *fd = MAP_FAILED;
 #if TS_USE_NUMA_NODE
-  unsigned long numa_node = -1;
+  enum EThread::numa_node numa_node = EThread::allnodes;
 #endif
 #else
   int fd = -1;

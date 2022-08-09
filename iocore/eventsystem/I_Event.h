@@ -209,7 +209,7 @@ public:
 
   EThread *ethread = nullptr;
  #if TS_USE_NUMA_NODE
-  unsigned long  numa_node=-1;
+  enum {Node0=0,node1=1,allnodes=-1} numa_node = allnodes;
 #endif
   unsigned int in_the_prot_queue : 1;
   unsigned int in_the_priority_queue : 1;

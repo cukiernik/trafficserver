@@ -36,18 +36,20 @@
 
 #include "tscore/ink_platform.h"
 #include "I_Event.h"
+
 struct ProtectedQueue {
   void enqueue(Event *e);
   int try_signal();             // Use non blocking lock and if acquired, signal
   void enqueue_local(Event *e); // Safe when called from the same thread
   Event *dequeue_local();
-  void dequeue_external();       // Dequeue any external events.
-  void dequeue_external(unsigned long numa_node=-1);       // Dequeue external events for node.
-  void wait(ink_hrtime timeout,unsigned long numa_node); // Wait for @a timeout nanoseconds on a condition variable if there are no events.
 #if TS_USE_NUMA_NODE
   InkAtomicList al[1+32] __attribute__((aligned( 0x1000))); // index 0 for non numa node assigned, 1 for numa node 0,2 for node 1,..
+  void dequeue_external(enum EThread::numa_node numa_node);       // Dequeue external events for node.
+  void wait(ink_hrtime timeout,enum EThread::numa_node numa_node); // Wait for @a timeout nanoseconds on a condition variable if there are no events.
 #else
   InkAtomicList al;
+  void dequeue_external();       // Dequeue any external events.
+  void wait(ink_hrtime timeout); // Wait for @a timeout nanoseconds on a condition variable if there are no events.
 #endif
   ink_mutex lock;
   ink_cond might_have_data;

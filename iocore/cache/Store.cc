@@ -500,7 +500,7 @@ Span::init(const char *path, int64_t size)
         char  value[8];
         read(f,value,sizeof(value));
         close(f);
-        numa_node=1<<atoi(value);
+        numa_node=static_cast<enum EThread::numa_node>(atoi(value));
       }
     }
     break;
