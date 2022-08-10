@@ -97,7 +97,11 @@ struct AIO_Reqs {
   Que(AIOCallback, link) aio_todo; /* queue for AIO operations */
                                    /* Atomic list to temporarily hold the request if the
                                       lock for a particular queue cannot be acquired */
+#if TS_USE_NUMA_NODE
+  ASLL(AIOCallbackInternal, alink) aio_temp_list[32+1];
+#else
   ASLL(AIOCallbackInternal, alink) aio_temp_list;
+#endif
   ink_mutex aio_mutex;
   ink_cond aio_cond;
   int index           = 0;          /* position of this struct in the aio_reqs array */

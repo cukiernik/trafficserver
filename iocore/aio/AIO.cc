@@ -295,23 +295,16 @@ aio_insert(AIOCallback *op, AIO_Reqs *req)
 
 /* move the request from the atomic list to the queue */
 static void
-aio_move(AIO_Reqs *req)
+aio_move(AIO_Reqs *req, enum Continuation::numa_node numa_node)
 {
-  if (req->aio_temp_list.empty()) {
-    return;
-  }
-
-  AIOCallbackInternal *cbi;
-  SList(AIOCallbackInternal, alink) aq(req->aio_temp_list.popall());
-
+  SList(AIOCallbackInternal, alink) aq(req->aio_temp_list[numa_node+1].popall());
   // flip the list
   Queue<AIOCallback> cbq;
-  while ((cbi = aq.pop())) {
+  while (AIOCallbackInternal *cbi = aq.pop()) {
     cbq.push(cbi);
   }
-
-  AIOCallback *cb;
-  while ((cb = cbq.pop())) {
+  while (AIOCallback *cb = cbq.pop()) {
+    fprintf(stderr,"\t%p => %p:%i\taio_move\n",req->aio_temp_list, cb, cb->numa_node);
     aio_insert(cb, req);
   }
 }
@@ -383,13 +376,14 @@ aio_queue_req(AIOCallbackInternal *op, int fromAPI = 0)
 #ifdef AIO_STATS
     ink_atomic_increment(&data->num_temp, 1);
 #endif
-    req->aio_temp_list.push(op);
+    fprintf(stderr,"\t%p:%i => %p\taio_queue_req\n", op, op->numa_node,req->aio_temp_list);
+    req->aio_temp_list[op->numa_node+1].push(op);
   } else {
 /* check if any pending requests on the atomic list */
 #ifdef AIO_STATS
     ink_atomic_increment(&data->num_queue, 1);
 #endif
-    aio_move(req);
+    aio_move(req,op->numa_node);
     /* now put the new request */
     aio_insert(op, req);
     ink_cond_signal(&req->aio_cond);
@@ -469,8 +463,6 @@ void *
 AIOThreadInfo::aio_thread_main(AIOThreadInfo *thr_info)
 {
   AIO_Reqs *my_aio_req    = thr_info->req;
-  AIO_Reqs *current_req   = nullptr;
-  AIOCallback *op         = nullptr;
   ink_mutex_acquire(&my_aio_req->aio_mutex);
   for (;;) {
     enum Continuation::numa_node numa_node=EThread::numa_node();
@@ -479,10 +471,11 @@ AIOThreadInfo::aio_thread_main(AIOThreadInfo *thr_info)
         ink_mutex_release(&my_aio_req->aio_mutex);
         return nullptr;
       }
-      current_req = my_aio_req;
+      AIO_Reqs *current_req   = my_aio_req;
       /* check if any pending requests on the atomic list */
-      aio_move(my_aio_req);
-      if (!(op = my_aio_req->aio_todo.pop())) {
+      aio_move(my_aio_req, EThread::numa_node());
+      AIOCallback *op         =my_aio_req->aio_todo.pop();
+      if (!op) {
         break;
       }
 #ifdef AIO_STATS

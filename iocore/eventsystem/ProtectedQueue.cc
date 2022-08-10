@@ -50,7 +50,7 @@ ProtectedQueue::enqueue(Event *e)
   EThread *e_ethread   = e->ethread;
   e->in_the_prot_queue = 1;
 #if TS_USE_NUMA_NODE
-  fprintf(stderr,"\t%p:%x=>%p\n",e,e->numa_node,al);
+//  fprintf(stderr,"\t%p:%x=>%p\n",e,e->numa_node,al);
   ink_assert((e->numa_node+1)<33);
   bool was_empty = (ink_atomiclist_push(al+1+e->numa_node, e)==nullptr);
 #else
@@ -77,7 +77,7 @@ ProtectedQueue::dequeue_external(enum Continuation::numa_node numa_node)
   };
   for(auto&i:t)
     while(Event*e=i.pop()) {
-      fprintf(stderr,"\t%p=>%p:%x\n",al,e,e->numa_node);
+//      fprintf(stderr,"\t%p=>%p:%x\n",al,e,e->numa_node);
       if (!e->cancelled) {
         localQueue.enqueue(e);
       } else {
