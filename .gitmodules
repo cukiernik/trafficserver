@@ -1,0 +1,3 @@
+[submodule "idxd-config"]
+	path = idxd-config
+	url = https://github.com/intel/idxd-config.git
